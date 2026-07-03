@@ -110,7 +110,7 @@ export function useCourses() {
     }
     const { data, error } = await supabase.from('courses')
       .insert(toDb({ active: true, ...form })).select('*').single()
-    if (error) { console.error('[useCourses] add', error); return null }
+    if (error) { console.error('[useCourses] add', error); return { error } }
     const mapped = fromDb(data)
     setCourses(prev => [...prev, mapped])
     return mapped
@@ -125,7 +125,7 @@ export function useCourses() {
     }
     const { data, error } = await supabase.from('courses')
       .update(toDb(form)).eq('id', id).select('*').single()
-    if (error) { console.error('[useCourses] update', error); return null }
+    if (error) { console.error('[useCourses] update', error); return { error } }
     const mapped = fromDb(data)
     setCourses(prev => prev.map(c => c.id === id ? mapped : c))
     return mapped
