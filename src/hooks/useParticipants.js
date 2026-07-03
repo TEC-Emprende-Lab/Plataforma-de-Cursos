@@ -207,7 +207,7 @@ export function useParticipants() {
       const newPs = list.map((imp, i) => ({
         id:      'p' + Date.now() + i,
         name:    imp.name    || 'Sin nombre',
-        email:   imp.email   || '',
+        email:   imp.email   || null,
         phone:   imp.phone   || '',
         courses: imp.courses || [],
         tags:    imp.tags    || [],
@@ -218,9 +218,10 @@ export function useParticipants() {
         notes:   imp.notes   || 'Importado desde CSV',
       }))
       setParticipants(prev => [...prev, ...newPs])
-      return newPs.map(p => p.id)
+      return { ids: newPs.map(p => p.id), errors: [] }
     }
     const added = []
+    const errors = []
     for (const imp of list) {
       const base = {
         name:    imp.name || 'Sin nombre',
@@ -235,13 +236,17 @@ export function useParticipants() {
       }
       const { data, error } = await supabase.from('participants')
         .insert(base).select('id').single()
-      if (error) { console.error('[useParticipants] import row', error); continue }
+      if (error) {
+        console.error('[useParticipants] import row', imp.name, error)
+        errors.push({ name: imp.name || 'Sin nombre', message: error.message || error.code || 'error desconocido' })
+        continue
+      }
       await syncRelations(data.id, imp.courses || [], imp.tags || [])
       const fresh = await fetchOne(data.id)
       if (fresh) added.push(fresh)
     }
     if (added.length) setParticipants(prev => [...prev, ...added])
-    return added.map(p => p.id)
+    return { ids: added.map(p => p.id), errors }
   }, [])
 
   /** Aplica cambios en lote a una lista de participantes.

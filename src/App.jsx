@@ -96,8 +96,13 @@ function AuthenticatedApp({ user, onSignOut, theme, toggleTheme }) {
   }
   const handleRenew  = id     => { renewAccess(id);               toast('Acceso renovado ✓')         }
   const handleImport = async list => {
-    const ids = await importParticipants(list)
-    toast(`${list.length} participante${list.length!==1?'s':''} importado${list.length!==1?'s':''} ✓`)
+    const { ids, errors } = await importParticipants(list)
+    if (errors?.length) {
+      const first = errors[0]
+      toast(`${ids.length} importado${ids.length!==1?'s':''}, ${errors.length} con error (${first.name}: ${first.message})`)
+    } else {
+      toast(`${ids.length} participante${ids.length!==1?'s':''} importado${ids.length!==1?'s':''} ✓`)
+    }
     return ids
   }
   const handleBulkUpdate = async (ids, patch, addCourses) => {
