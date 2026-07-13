@@ -251,30 +251,6 @@ documento completo. Resumen del estado de implementación:
 
 ---
 
-## 6. Repos de terceros revisados (referencia, no de TEC Emprende)
-
-Por pedido explícito del usuario, se revisaron 3 repos externos
-(`mau671/claustrum`, `mau671/miaubot`, `mau671/coursia`) para ver qué
-se podía reutilizar. Conclusión resumida (detalle completo en el
-historial de la sesión si se necesita, no se guardó código de ahí):
-
-- **Claustrum** (plataforma académica del TEC, madura): lo más
-  aprovechable de los tres. Better Auth (magic link, 2FA, OAuth, JWT) más
-  completo que el patrón manual usado en los repos propios; patrón de
-  Cloudflare R2 + Worker con acceso firmado (referencia directa para el
-  gating de video de la Cursos nueva); flujo de moderación con roles;
-  Cloudflare Turnstile para formularios públicos; ejemplos reales de
-  RLS+RPC en Supabase (que es justo lo que falta en los repos propios).
-- **Coursia**: solo un esqueleto temprano (TanStack Start). Único rescate:
-  `@better-auth-ui/react` (componentes de UI listos para Better Auth).
-- **Miaubot**: organizador de archivos multimedia (anime/películas). No
-  aplica a ningún proyecto de TEC Emprende — dominio completamente
-  distinto. Único uso tangencial posible: patrón de subida por lote con
-  Rclone si algún día se necesita respaldo masivo de PDFs/certificados
-  fuera de Supabase (no es una necesidad planteada hoy).
-
----
-
 ## Cómo continuar en la próxima sesión
 
 1. Preguntar al usuario si quiere seguir con:
