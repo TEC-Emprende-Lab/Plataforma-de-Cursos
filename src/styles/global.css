@@ -56,11 +56,14 @@
   --blue-l:      #EEF3FF;   /* lavanda claro */
 
   /* Tokens semánticos */
-  --sidebar-bg:     var(--black);
-  --sidebar-text:   var(--cream);
-  --sidebar-muted:  #B3A892;   /* texto secundario del sidebar — contraste AA sobre fondo oscuro */
-  --sidebar-border: #3A332B;
-  --logo-color:     var(--orange);   /* wordmark: naranja en claro */
+  --surface-brand:        #B85A22;   /* terracota — sidebar en modo claro (§14 dictamen aprobado) */
+  --surface-brand-active: #E4C99A;   /* pastilla del ítem activo sobre superficie de marca */
+  --surface-brand-active-text: #4A4A4A;
+  --sidebar-bg:     var(--surface-brand);
+  --sidebar-text:   #FFFFFF;
+  --sidebar-muted:  rgba(255,255,255,.7);   /* texto secundario del sidebar */
+  --sidebar-border: rgba(255,255,255,.32);
+  --logo-color:     var(--orange);   /* wordmark: naranja en claro. El sidebar lo sobreescribe a blanco (ver Sidebar.jsx), porque este token también lo usa LoginView sobre fondo crema. */
   --row-hover:    #FDFBF4;
   --row-exp-bg:   #FFF5F0;
   --row-warn-bg:  #FFFAF2;

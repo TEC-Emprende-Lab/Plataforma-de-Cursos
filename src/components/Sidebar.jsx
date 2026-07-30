@@ -44,7 +44,7 @@ export default function Sidebar({ view, setView, participants, courses = [], use
           flexShrink:0, position:'fixed', top:0, left:0, height:'100vh', overflowY:'auto', zIndex:50 }}>
         <div style={{ padding:'0 20px 28px', display:'flex', alignItems:'flex-start', gap:10 }}>
           <div style={{ flex:1, minWidth:0 }}>
-            <Logo height={26} style={{ marginBottom:6 }} />
+            <Logo height={26} style={{ marginBottom:6, color:'#FFFFFF' }} />
             <div style={{ color:'var(--sidebar-muted)', fontSize:11, marginTop:3 }}>Panel de gestión</div>
           </div>
           {onToggleTheme && (
@@ -73,8 +73,8 @@ export default function Sidebar({ view, setView, participants, courses = [], use
                 style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px',
                   borderRadius:8, cursor:'pointer', marginBottom:2, width:'100%',
                   textAlign:'left', border:'none', fontFamily:'inherit',
-                  background: isActive ? 'var(--orange)' : 'transparent',
-                  transition:'all .15s', color: isActive ? '#fff' : 'var(--sidebar-muted)',
+                  background: isActive ? 'var(--surface-brand-active, var(--orange))' : 'transparent',
+                  transition:'all .15s', color: isActive ? 'var(--surface-brand-active-text, #fff)' : 'var(--sidebar-muted)',
                   fontSize:13, fontWeight: isActive ? 600 : 400 }}>
                 <i className={`ti ${item.icon}`} style={{ fontSize:15 }} aria-hidden="true"/>
                 {item.label}
