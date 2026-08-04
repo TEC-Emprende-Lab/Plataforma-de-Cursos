@@ -1,9 +1,12 @@
 name: Lint & Static Analysis
 
 on:
-  pull_request:
-    branches: [main, develop]
+  workflow_dispatch:
   push:
+    branches:
+      - main
+      - develop
+  pull_request:
     branches: [main, develop]
 
 permissions:
