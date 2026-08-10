@@ -1,0 +1,77 @@
+name: Lint & Static Analysis
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  eslint:
+    name: ESLint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint (JSON report, always saved)
+        run: npx eslint . --format json --output-file eslint-report.json
+        continue-on-error: true
+
+      - name: Upload ESLint report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: eslint-report
+          path: eslint-report.json
+          retention-days: 14
+
+      - name: Run ESLint (fails the job on lint errors)
+        run: npx eslint .
+
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+
+    container:
+      image: semgrep/semgrep
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Run Semgrep scan
+        id: semgrep
+        run: semgrep scan --config auto --sarif --output semgrep-results.sarif
+        continue-on-error: true
+
+      - name: Upload SARIF to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@c4dd10e44af883a891fe31ced449bcb4a6728b9b
+        with:
+          sarif_file: semgrep-results.sarif
+
+      - name: Fail job if Semgrep found blocking issues
+        if: steps.semgrep.outcome == 'failure'
+        run: |
+          echo "Semgrep found blocking findings — see the Security tab or the annotated diff on this PR."
+          exit 1
