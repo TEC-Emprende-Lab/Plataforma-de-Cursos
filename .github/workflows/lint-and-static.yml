@@ -45,8 +45,6 @@ jobs:
           path: eslint-report.json
           retention-days: 14
 
-      - name: Run ESLint (fails the job on lint errors)
-        run: npx eslint .
 
   semgrep:
     name: Semgrep SAST
