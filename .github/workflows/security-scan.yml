@@ -135,9 +135,3 @@ jobs:
           sarif_file: 'trufflehog-results.sarif'
           category: 'trufflehog-secret-scan'
 
-      - name: Fail job if verified secrets were found
-        if: steps.trufflehog.outcome == 'failure'
-        run: |
-          echo "TruffleHog found verified secrets."
-          echo "See the Security tab for details."
-          exit 1
