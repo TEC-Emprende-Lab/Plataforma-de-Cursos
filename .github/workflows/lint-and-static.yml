@@ -16,6 +16,7 @@ permissions:
   security-events: write
 
 jobs:
+
   eslint:
     name: ESLint
     runs-on: ubuntu-latest
@@ -33,17 +34,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run ESLint (JSON report, always saved)
-        run: npx eslint . --format json --output-file eslint-report.json
+      - name: Run ESLint (SARIF report)
+        run: npx eslint . --format sarif --output-file eslint-results.sarif
         continue-on-error: true
 
-      - name: Upload ESLint report
+      - name: Upload ESLint SARIF
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: github/codeql-action/upload-sarif@c4dd10e44af883a891fe31ced449bcb4a6728b9b
         with:
-          name: eslint-report
-          path: eslint-report.json
-          retention-days: 14
+          sarif_file: eslint-results.sarif
 
 
   semgrep:
@@ -62,7 +61,7 @@ jobs:
         run: semgrep scan --config auto --sarif --output semgrep-results.sarif
         continue-on-error: true
 
-      - name: Upload SARIF to GitHub Security tab
+      - name: Upload Semgrep SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@c4dd10e44af883a891fe31ced449bcb4a6728b9b
         with:
