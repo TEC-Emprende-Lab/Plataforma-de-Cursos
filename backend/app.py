@@ -17,11 +17,26 @@ import re
 import zipfile
 import json
 import csv
+import logging
+import uuid
 from pathlib import Path
+from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 
-from flask import Flask, request, jsonify, send_file, Response
+from flask import Flask, request, jsonify, send_file, Response, g
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.errors import RateLimitExceeded
+from flask_limiter.util import get_remote_address
+from werkzeug.exceptions import RequestEntityTooLarge
+from auth import AuthConfig, AuthError, SupabaseJWTVerifier
+from svg_security import PUBLIC_ERROR as SVG_PUBLIC_ERROR
+from svg_security import SvgValidationError, validate_svg
+from template_storage import (
+    PUBLIC_STORAGE_ERROR,
+    SupabaseTemplateStore,
+    TemplateStorageError,
+)
 
 try:
     import cairosvg
@@ -52,43 +67,21 @@ if not AI_OK:
     except (ImportError, Exception):
         pass
 
-# ── Instalación de fuentes en runtime ────────────────────────────────────────
+# ── Fuentes incluidas en la imagen/repositorio ───────────────────────────────
 import subprocess as _sp
-import urllib.request as _ur
-import zipfile as _zf
 
 def _install_fonts():
-    """Instala Outfit y Onest si no están disponibles."""
+    """Comprueba las fuentes sin descargar ni modificar recursos remotos."""
     try:
         result = _sp.run(["fc-list"], capture_output=True, text=True)
         fonts_list = result.stdout.lower()
-        if "outfit" in fonts_list and "onest" in fonts_list:
-            return
-        import os, tempfile
-        font_dir = "/usr/local/share/fonts/custom"
-        os.makedirs(font_dir, exist_ok=True)
-        sources = {
-            "Outfit": "https://fonts.google.com/download?family=Outfit",
-            "Onest":  "https://fonts.google.com/download?family=Onest",
-        }
-        for name, url in sources.items():
-            if name.lower() in fonts_list:
-                continue
-            try:
-                tmp = os.path.join(tempfile.gettempdir(), f"{name}.zip")
-                _ur.urlretrieve(url, tmp)
-                with _zf.ZipFile(tmp, "r") as z:
-                    for zi in z.infolist():
-                        if zi.filename.endswith(".ttf") or zi.filename.endswith(".otf"):
-                            zi.filename = os.path.basename(zi.filename)
-                            z.extract(zi, font_dir)
-                os.remove(tmp)
-                print(f"[fonts] {name} instalada en {font_dir}")
-            except Exception as e:
-                print(f"[fonts] No se pudo instalar {name}: {e}")
-        _sp.run(["fc-cache", "-f", font_dir], capture_output=True)
+        missing = [name for name in ("outfit", "onest") if name not in fonts_list]
+        if missing:
+            logging.getLogger(__name__).warning(
+                "Fuentes esperadas no disponibles: %s", ", ".join(missing)
+            )
     except Exception as e:
-        print(f"[fonts] Error en instalación de fuentes: {e}")
+        logging.getLogger(__name__).warning("No se pudo comprobar fontconfig: %s", e)
 
 _install_fonts()
 
@@ -118,10 +111,168 @@ def _install_repo_fonts():
 _install_repo_fonts()
 
 
+def _positive_int_env(name: str, default: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+APP_ENV = os.getenv("APP_ENV", "production").strip().lower()
+if APP_ENV not in {"production", "development", "test"}:
+    raise RuntimeError("APP_ENV debe ser production, development o test")
+AUTH_CONFIG = AuthConfig.from_env()
+AUTH_VERIFIER = SupabaseJWTVerifier(AUTH_CONFIG)
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+if APP_ENV == "production" and not SUPABASE_SERVICE_ROLE_KEY:
+    raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY es obligatorio en producción")
+TEMPLATE_STORE = (
+    SupabaseTemplateStore(AUTH_CONFIG.supabase_url, SUPABASE_SERVICE_ROLE_KEY)
+    if AUTH_CONFIG.supabase_url and SUPABASE_SERVICE_ROLE_KEY
+    else None
+)
+MAX_BATCH_ROWS = _positive_int_env("MAX_BATCH_ROWS", 200)
+MAX_CEDULAS = _positive_int_env("MAX_CEDULAS", 200)
+MAX_CSV_BYTES = _positive_int_env("MAX_CSV_BYTES", 1024 * 1024)
+RATE_LIMIT_ANALYZE = os.getenv("RATE_LIMIT_ANALYZE", "30 per minute")
+RATE_LIMIT_PREVIEW = os.getenv("RATE_LIMIT_PREVIEW", "30 per minute")
+RATE_LIMIT_GENERATE = os.getenv("RATE_LIMIT_GENERATE", "10 per minute")
+RATE_LIMIT_BATCH = os.getenv("RATE_LIMIT_BATCH", "2 per minute")
+RATE_LIMIT_AI = os.getenv("RATE_LIMIT_AI", "5 per minute")
+RATE_LIMIT_CEDULAS = os.getenv("RATE_LIMIT_CEDULAS", "10 per minute")
+RATE_LIMIT_TEMPLATES = os.getenv("RATE_LIMIT_TEMPLATES", "5 per minute")
+
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+
+def _is_valid_cors_origin(origin: str) -> bool:
+    parsed = urlparse(origin)
+    if origin == "*" or parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return False
+    if parsed.path not in {"", "/"} or parsed.params or parsed.query or parsed.fragment:
+        return False
+    return APP_ENV != "production" or parsed.scheme == "https"
+
+
+if any(not _is_valid_cors_origin(origin) for origin in allowed_origins):
+    raise RuntimeError("CORS_ALLOWED_ORIGINS contiene un origen inválido")
+if not allowed_origins and APP_ENV == "production":
+    raise RuntimeError("CORS_ALLOWED_ORIGINS es obligatorio en producción")
+if not allowed_origins:
+    allowed_origins = ["http://localhost:5173"]
+
+rate_storage_uri = os.getenv("RATELIMIT_STORAGE_URI", "").strip()
+if APP_ENV == "production" and not rate_storage_uri:
+    raise RuntimeError("RATELIMIT_STORAGE_URI es obligatorio en producción")
+if APP_ENV == "production" and urlparse(rate_storage_uri).scheme not in {"redis", "rediss"}:
+    raise RuntimeError("RATELIMIT_STORAGE_URI debe usar Redis en producción")
+
 app = Flask(__name__)
-CORS(app, expose_headers=["X-Generated-Count", "X-Error-Count", "X-Total-Count"])
+app.config["MAX_CONTENT_LENGTH"] = _positive_int_env("MAX_REQUEST_BYTES", 10 * 1024 * 1024)
+CORS(
+    app,
+    resources={"/api/*": {"origins": allowed_origins}},
+    allow_headers=["Authorization", "Content-Type"],
+    expose_headers=["X-Generated-Count", "X-Error-Count", "X-Total-Count", "Retry-After"],
+    methods=["GET", "POST", "OPTIONS"],
+    supports_credentials=False,
+)
+
+
+def _rate_limit_key():
+    identity = getattr(g, "auth_identity", None)
+    return identity.subject if identity and identity.subject else get_remote_address()
+
+
+limiter = Limiter(
+    key_func=_rate_limit_key,
+    storage_uri=rate_storage_uri or "memory://",
+    headers_enabled=True,
+    default_limits=[],
+)
+logger = logging.getLogger("certificate_api")
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+
+def _validated_svg_upload(file_storage) -> str:
+    return validate_svg(file_storage.read())
+
+
+def _validated_template(template_name: str) -> str:
+    return validate_svg(_load_template(template_name))
+
+
+@app.errorhandler(SvgValidationError)
+def handle_invalid_svg(_error):
+    return jsonify({"error": SVG_PUBLIC_ERROR, "code": "invalid_svg"}), 400
+
+
+@app.errorhandler(TemplateStorageError)
+def handle_template_storage_error(_error):
+    logger.exception("Fallo de almacenamiento de plantilla")
+    return jsonify({"error": PUBLIC_STORAGE_ERROR, "code": "template_storage_failed"}), 502
+
+
+@app.before_request
+def verify_protected_request():
+    g.request_id = uuid.uuid4().hex
+    if request.method in {"GET", "OPTIONS"}:
+        return None
+    g.auth_identity = AUTH_VERIFIER.verify_authorization(request.headers.get("Authorization"))
+    return None
+
+
+# Flask ejecuta los hooks en orden de registro: autenticación debe poblar `g`
+# antes de que Flask-Limiter calcule una cuota por usuario.
+limiter.init_app(app)
+
+
+@app.after_request
+def add_security_headers(response):
+    response.headers["X-Request-ID"] = getattr(g, "request_id", uuid.uuid4().hex)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; "
+        "font-src data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+    )
+    return response
+
+
+@app.errorhandler(AuthError)
+def handle_auth_error(error):
+    return jsonify({"error": error.public_message, "code": error.code}), error.status_code
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_request_too_large(_error):
+    return jsonify({"error": "La solicitud supera el tamaño permitido.", "code": "request_too_large"}), 413
+
+
+@app.errorhandler(RateLimitExceeded)
+def handle_rate_limit(_error):
+    return jsonify({"error": "Demasiadas solicitudes. Intentá de nuevo más tarde.", "code": "rate_limit_exceeded"}), 429
+
+
+@app.errorhandler(500)
+def handle_internal_error(error):
+    logger.error(
+        "Error interno no controlado request_id=%s",
+        getattr(g, "request_id", "unknown"),
+        exc_info=error.original_exception or error,
+    )
+    return jsonify({
+        "error": "Ocurrió un error interno.",
+        "code": "internal_error",
+        "request_id": getattr(g, "request_id", None),
+    }), 500
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -1134,7 +1285,11 @@ def serve_template(filename):
     path = TEMPLATES_DIR / safe
     if not path.exists():
         return jsonify({"error": "not found"}), 404
-    return Response(path.read_text(encoding="utf-8"), mimetype="image/svg+xml")
+    try:
+        svg_text = validate_svg(path.read_bytes())
+    except SvgValidationError:
+        return jsonify({"error": SVG_PUBLIC_ERROR, "code": "invalid_svg"}), 400
+    return Response(svg_text, mimetype="image/svg+xml")
 
 
 @app.get("/api/templates")
@@ -1143,29 +1298,84 @@ def list_templates():
     return jsonify({"templates": files})
 
 
+def _template_list_field(name: str, *, maximum: int) -> list[str]:
+    try:
+        values = json.loads(request.form.get(name, "[]"))
+    except (json.JSONDecodeError, TypeError):
+        values = []
+    if not isinstance(values, list):
+        return []
+    return [str(value).strip()[:80] for value in values[:maximum] if str(value).strip()]
+
+
+@app.post("/api/templates/upload")
+@limiter.limit(RATE_LIMIT_TEMPLATES)
+def upload_template():
+    if TEMPLATE_STORE is None:
+        return jsonify({"error": "El almacenamiento no está configurado.", "code": "template_storage_unavailable"}), 503
+    uploaded = request.files.get("file")
+    if uploaded is None or not uploaded.filename or not uploaded.filename.lower().endswith(".svg"):
+        return jsonify({"error": "Solo se aceptan archivos SVG.", "code": "invalid_template_file"}), 400
+
+    svg_text = _validated_svg_upload(uploaded)
+    transformed = _inject_firma_yorleny(
+        _fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(svg_text)))
+    )
+    elements = _detect_elements(transformed)
+    detected_name = next((item["id"] for item in elements if re.search(r"name|nombre|participante", item["id"], re.I)), None)
+    detected_date = next((item["id"] for item in elements if re.search(r"date|fecha", item["id"], re.I)), None)
+
+    metadata = {
+        "name": (request.form.get("name") or Path(uploaded.filename).stem)[:120],
+        "file_name": Path(uploaded.filename).name[:120],
+        "style": (request.form.get("style") or "Personalizado")[:80],
+        "course": (request.form.get("course") or "Todos los programas")[:120],
+        "colors": _template_list_field("colors", maximum=12),
+        "tags": _template_list_field("tags", maximum=20),
+        "name_id": (request.form.get("name_id") or detected_name or "recipient_name")[:120],
+        "date_id": (request.form.get("date_id") or detected_date or "issue_date")[:120],
+    }
+    row = TEMPLATE_STORE.create(svg_text, uploaded.filename, metadata)
+    return jsonify({"template": row}), 201
+
+
+@app.post("/api/templates/delete")
+@limiter.limit(RATE_LIMIT_TEMPLATES)
+def delete_template():
+    if TEMPLATE_STORE is None:
+        return jsonify({"error": "El almacenamiento no está configurado.", "code": "template_storage_unavailable"}), 503
+    template_id = (request.get_json(silent=True) or {}).get("id")
+    if not template_id:
+        return jsonify({"error": "Falta el identificador de la plantilla.", "code": "template_id_required"}), 400
+    TEMPLATE_STORE.delete(str(template_id))
+    return jsonify({"deleted": True})
+
+
 @app.post("/api/analyze")
+@limiter.limit(RATE_LIMIT_ANALYZE)
 def analyze():
     svg_text = None
     if "file" in request.files:
-        svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(request.files["file"].read().decode("utf-8", errors="replace")))))
+        svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_validated_svg_upload(request.files["file"])))))
     else:
         tname = request.form.get("template_name") or (request.get_json(silent=True) or {}).get("template_name")
         if tname:
-            svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_load_template(tname)))))
+            svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_validated_template(tname)))))
     if not svg_text:
         return jsonify({"error": "no SVG proporcionado"}), 400
     return jsonify({"elements": _detect_elements(svg_text)})
 
 
 @app.post("/api/preview")
+@limiter.limit(RATE_LIMIT_PREVIEW)
 def preview():
     svg_text = None
     if "file" in request.files:
-        svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(request.files["file"].read().decode("utf-8", errors="replace")))))
+        svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_validated_svg_upload(request.files["file"])))))
     else:
         tname = request.form.get("template_name") or (request.get_json(silent=True) or {}).get("template_name")
         if tname:
-            svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_load_template(tname)))))
+            svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_validated_template(tname)))))
     if not svg_text:
         return jsonify({"error": "no SVG proporcionado"}), 400
 
@@ -1188,12 +1398,13 @@ def preview():
     # Embeber fuentes también en la vista previa para que el navegador
     # muestre las tipografías reales (MonteCarlo, Poppins, etc.) tal como
     # saldrán en el PDF, y no una fuente de respaldo del sistema.
-    svg_text = _embed_fonts(svg_text)
+    svg_text = validate_svg(_embed_fonts(svg_text))
 
     return Response(svg_text, mimetype="image/svg+xml")
 
 
 @app.post("/api/generate")
+@limiter.limit(RATE_LIMIT_GENERATE)
 def generate():
     svg_text = None
     fmt      = "pdf"
@@ -1205,7 +1416,7 @@ def generate():
         fields  = data.get("fields", {})
         tname   = data.get("template_name")
         if tname:
-            svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_load_template(tname)))))
+            svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_validated_template(tname)))))
     else:
         fmt = (request.form.get("format") or request.form.get("output_format", "pdf")).lower()
         try:
@@ -1214,11 +1425,11 @@ def generate():
             fields = {}
 
         if "file" in request.files:
-            svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(request.files["file"].read().decode("utf-8", errors="replace")))))
+            svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_validated_svg_upload(request.files["file"])))))
         else:
             tname = request.form.get("template_name")
             if tname:
-                svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_load_template(tname)))))
+                svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_validated_template(tname)))))
 
         if not fields:
             name_id  = request.form.get("name_field_id", "recipient_name")
@@ -1228,10 +1439,13 @@ def generate():
             if name_val: fields[name_id] = name_val
             if date_val: fields[date_id] = date_val
 
+    if fmt not in {"pdf", "png"}:
+        return jsonify({"error": "El formato debe ser PDF o PNG.", "code": "invalid_format"}), 400
+
     if not svg_text:
         return jsonify({"error": "no SVG proporcionado"}), 400
 
-    filled = _fill_svg(svg_text, fields)
+    filled = validate_svg(_fill_svg(svg_text, fields))
 
     if not CAIRO_OK:
         return Response(
@@ -1241,16 +1455,22 @@ def generate():
 
     try:
         output = _svg_to_output(filled, fmt)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("Fallo de generación request_id=%s", g.request_id)
+        return jsonify({
+            "error": "No se pudo generar el certificado.",
+            "code": "generation_failed",
+            "request_id": g.request_id,
+        }), 500
 
     mime = "application/pdf" if fmt == "pdf" else "image/png"
     ext  = "pdf" if fmt == "pdf" else "png"
     return send_file(io.BytesIO(output), mimetype=mime,
-                     download_name=f"certificado.{ext}", as_attachment=True)
+                    download_name=f"certificado.{ext}", as_attachment=True)
 
 
 @app.post("/api/generate/batch")
+@limiter.limit(RATE_LIMIT_BATCH)
 def generate_batch():
     fmt         = (request.form.get("format") or request.form.get("output_format", "pdf")).lower()
     name_id     = request.form.get("name_field_id", "recipient_name")
@@ -1261,14 +1481,17 @@ def generate_batch():
     except (json.JSONDecodeError, ValueError):
         extra_fields = {}
 
+    if fmt not in {"pdf", "png"}:
+        return jsonify({"error": "El formato debe ser PDF o PNG.", "code": "invalid_format"}), 400
+
     # Cargar SVG
     svg_text = None
     if "file" in request.files:
-        svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(request.files["file"].read().decode("utf-8", errors="replace")))))
+        svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_validated_svg_upload(request.files["file"])))))
     else:
         tname = request.form.get("template_name")
         if tname:
-            svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_load_template(tname)))))
+            svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_validated_template(tname)))))
 
     if not svg_text:
         return jsonify({"error": "No se proporcionó plantilla SVG"}), 400
@@ -1276,9 +1499,14 @@ def generate_batch():
     # Cargar CSV
     csv_text = ""
     if "csv_file" in request.files:
-        csv_text = request.files["csv_file"].read().decode("utf-8-sig", errors="replace")
+        csv_bytes = request.files["csv_file"].read(MAX_CSV_BYTES + 1)
+        if len(csv_bytes) > MAX_CSV_BYTES:
+            return jsonify({"error": "El CSV supera el tamaño permitido.", "code": "csv_too_large"}), 413
+        csv_text = csv_bytes.decode("utf-8-sig", errors="replace")
     else:
         csv_text = request.form.get("csv_data", "")
+        if len(csv_text.encode("utf-8")) > MAX_CSV_BYTES:
+            return jsonify({"error": "El CSV supera el tamaño permitido.", "code": "csv_too_large"}), 413
 
     if not csv_text.strip():
         return jsonify({"error": "No adjuntaste ningún archivo CSV. Subí un archivo con al menos una columna de nombres y volvé a intentarlo."}), 400
@@ -1286,6 +1514,11 @@ def generate_batch():
     rows = list(csv.DictReader(io.StringIO(csv_text)))
     if not rows:
         return jsonify({"error": "El archivo se subió pero no tiene filas de datos. Revisá que debajo de los encabezados haya al menos una persona."}), 400
+    if len(rows) > MAX_BATCH_ROWS:
+        return jsonify({
+            "error": f"El lote admite como máximo {MAX_BATCH_ROWS} filas.",
+            "code": "too_many_rows",
+        }), 400
 
     # Verificar columna de nombre con fuzzy matching (mensaje amable)
     headers = [h.strip() for h in rows[0].keys()]
@@ -1311,7 +1544,7 @@ def generate_batch():
                 fields[date_id] = global_date
             if extra_fields:
                 fields.update(extra_fields)
-            filled    = _fill_svg(svg_text, fields)
+            filled    = validate_svg(_fill_svg(svg_text, fields))
             name_hint = fields.get(name_id) or str(i + 1)
             safe_hint = re.sub(r"[^\w\- ]", "", name_hint).strip()[:60] or str(i + 1)
 
@@ -1324,9 +1557,12 @@ def generate_batch():
                     ext    = "pdf" if fmt == "pdf" else "png"
                     zf.writestr(f"{i+1:03d}_{safe_hint}.{ext}", output)
                     ok_count += 1
-                except Exception as e:
+                except Exception:
+                    logger.exception(
+                        "Fallo de fila de lote request_id=%s row=%s", g.request_id, i + 1
+                    )
                     zf.writestr(f"{i+1:03d}_{safe_hint}_ERROR.txt",
-                                f"Error: {e}\n\nCampos: {fields}".encode("utf-8"))
+                                b"No se pudo generar este certificado.")
                     error_count += 1
 
     zip_buf.seek(0)
@@ -1341,12 +1577,13 @@ def generate_batch():
 
 
 @app.post("/api/ai/mapeo")
+@limiter.limit(RATE_LIMIT_AI)
 def ai_mapeo():
     if not AI_OK or not AI_CLIENT:
         return jsonify({"error": "IA no disponible — configurá ANTHROPIC_API_KEY"}), 503
 
     if "file" in request.files:
-        svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(request.files["file"].read().decode("utf-8", errors="replace")))))
+        svg_text = _inject_firma_yorleny(_fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(_validated_svg_upload(request.files["file"])))))
         elements = _detect_elements(svg_text)
     else:
         data     = request.get_json(silent=True) or {}
@@ -1398,13 +1635,16 @@ Responde SOLO con JSON, sin texto adicional:
         if result.get("date_id") not in ids:
             result["date_id"] = ids[1] if len(ids) > 1 else ids[0] if ids else ""
         return jsonify(result)
-    except (json.JSONDecodeError, ValueError) as e:
-        return jsonify({"error": f"Error al parsear respuesta IA: {e}"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except (json.JSONDecodeError, ValueError):
+        logger.exception("Respuesta IA inválida request_id=%s", g.request_id)
+        return jsonify({"error": "La IA devolvió una respuesta inválida.", "code": "ai_invalid_response"}), 502
+    except Exception:
+        logger.exception("Fallo del proveedor IA request_id=%s", g.request_id)
+        return jsonify({"error": "No se pudo consultar la IA.", "code": "ai_failed"}), 502
 
 
 @app.post("/api/cedulas/lookup")
+@limiter.limit(RATE_LIMIT_CEDULAS)
 def cedulas_lookup():
     """
     Recibe lista de cédulas y devuelve nombres oficiales del Registro Civil.
@@ -1415,9 +1655,14 @@ def cedulas_lookup():
     cedulas = data.get("cedulas", [])
     if not cedulas or not isinstance(cedulas, list):
         return jsonify({"error": "Enviá un JSON con campo 'cedulas' como lista"}), 400
+    if len(cedulas) > MAX_CEDULAS:
+        return jsonify({
+            "error": f"La consulta admite como máximo {MAX_CEDULAS} cédulas.",
+            "code": "too_many_cedulas",
+        }), 400
 
     results = []
-    for ced in cedulas[:200]:  # máximo 200 por request
+    for ced in cedulas:
         nombre = _lookup_cedula(str(ced))
         results.append({
             "cedula": str(ced),

@@ -7,6 +7,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTemplates } from '../hooks/useTemplates.js'
 
 import { CERT_API } from '../config.js'
+import { svgPreviewMarkup } from '../utils/svg.js'
+import { certificateApiFetch } from '../lib/certificateApi.js'
 
 const TODAY_ES = (() => {
   const d = new Date()
@@ -176,7 +178,9 @@ function TemplateCarousel({ templates, selectedValue, svgFile, onSelect, certApi
                   background:'#f5f5f5', display:'flex', alignItems:'center', justifyContent:'center' }}>
                   {svgRaw
                     ? <div style={{ width:'100%', height:'100%' }}
-                        dangerouslySetInnerHTML={{ __html: svgRaw.replace(/<svg/, '<svg preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block"') }} />
+                        dangerouslySetInnerHTML={{ __html: svgPreviewMarkup(svgRaw, {
+                          preserveAspectRatio:'xMidYMid meet', style:'width:100%;height:100%;display:block',
+                        }) }} />
                     : <span className="material-symbols-outlined" style={{ fontSize:28, color:'var(--gray)', opacity:.5 }}>
                         workspace_premium
                       </span>
@@ -489,7 +493,7 @@ function CertIndividual({ participants, courses = [], galleryTplPick, onGalleryC
     if (dId) form.append('date_field_id', dId)
     setPreviewLoading(true)
     try {
-      const r = await fetch(`${CERT_API}/api/preview`, { method:'POST', body:form })
+      const r = await certificateApiFetch(`${CERT_API}/api/preview`, { method:'POST', body:form })
       if (r.ok) setPreviewSvg(await r.text())
     } catch(_) {}
     finally { setPreviewLoading(false) }
@@ -560,7 +564,7 @@ function CertIndividual({ participants, courses = [], galleryTplPick, onGalleryC
     form.append('date_field_id', dateId.trim())
     form.append('output_format', fmt)
     try {
-      const r = await fetch(`${CERT_API}/api/generate`, { method:'POST', body:form })
+      const r = await certificateApiFetch(`${CERT_API}/api/generate`, { method:'POST', body:form })
       if (!r.ok) { const d = await r.json(); setAlert({type:'error',msg:d.error||'Error al generar.'}); return }
       const blob = await r.blob()
       const a = document.createElement('a')
@@ -795,7 +799,7 @@ function CertIndividual({ participants, courses = [], galleryTplPick, onGalleryC
           {previewSvg
             ? <div style={{ background:'var(--white)', borderRadius:10, boxShadow:'0 4px 20px rgba(0,0,0,.12)',
                 width:'100%', maxWidth:700, transition:'opacity .2s', opacity: previewLoading ? .5 : 1 }}
-                dangerouslySetInnerHTML={{ __html: previewSvg.replace(/<svg/, '<svg style="display:block;width:100%;height:auto"') }} />
+                dangerouslySetInnerHTML={{ __html: svgPreviewMarkup(previewSvg, { style:'display:block;width:100%;height:auto' }) }} />
             : <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
                 height:200, color:'var(--border)', gap:12 }}>
                 <span className="material-symbols-outlined" style={{fontSize:48}}>workspace_premium</span>
@@ -924,7 +928,7 @@ function CertBatch({ participants = [], courses = [] }) {
     if (Object.keys(extraFields).length) form.append('extra_fields', JSON.stringify(extraFields))
     try {
       setProgress(30)
-      const r = await fetch(`${CERT_API}/api/generate/batch`, { method:'POST', body:form })
+      const r = await certificateApiFetch(`${CERT_API}/api/generate/batch`, { method:'POST', body:form })
       setProgress(85)
       if (!r.ok) {
         let errMsg = 'Error al generar el lote.'

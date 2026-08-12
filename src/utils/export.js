@@ -3,7 +3,6 @@
 //  Exportación a Excel y CSV con cursos dinámicos.
 // ============================================================
 
-import * as XLSX from 'xlsx'
 import { daysElapsed, daysLeft, expiryDate, getAccessDays } from './time.js'
 
 function shortName(id, courses) {
@@ -32,11 +31,30 @@ function buildRows(participants, courses) {
   })
 }
 
-export function exportToExcel(participants, courses, filename='TEC_Emprende_Participantes.xlsx') {
-  const ws = XLSX.utils.json_to_sheet(buildRows(participants, courses))
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, 'Participantes', ws)
-  XLSX.writeFile(wb, filename)
+export async function buildExcelBuffer(participants, courses) {
+  const { default: ExcelJS } = await import('exceljs')
+  const rows = buildRows(participants, courses)
+  const workbook = new ExcelJS.Workbook()
+  const worksheet = workbook.addWorksheet('Participantes')
+
+  if (rows.length) {
+    const headers = Object.keys(rows[0])
+    worksheet.addRow(headers)
+    rows.forEach(row => worksheet.addRow(headers.map(header => row[header])))
+  }
+
+  return workbook.xlsx.writeBuffer()
+}
+
+export async function exportToExcel(participants, courses, filename='TEC_Emprende_Participantes.xlsx') {
+  const buffer = await buildExcelBuffer(participants, courses)
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  const url = URL.createObjectURL(blob)
+  const a = Object.assign(document.createElement('a'), { href:url, download:filename })
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 export function exportToCSV(participants, courses, filename='TEC_Emprende_Participantes.csv') {

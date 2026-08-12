@@ -14,6 +14,10 @@ import { useState }         from 'react'
 
 export default function ProfileView({ id, participants, courses, tags, onToggleAccess, onRenew, onUpdateTags, setView }) {
   const p = participants.find(x => x.id === id)
+
+  const [editingTags, setEditingTags] = useState(false)
+  const [selectedTags, setSelectedTags] = useState(p?.tags || [])
+
   if (!p) return <div>Participante no encontrado</div>
 
   const days        = getAccessDays(p, courses)
@@ -21,9 +25,6 @@ export default function ProfileView({ id, participants, courses, tags, onToggleA
   const warn        = isWarning(p.fecha, days)
   const examRemind  = needsExamReminder(p.fecha, days)
   const ptags       = tags.filter(t => (p.tags||[]).includes(t.id))
-
-  const [editingTags, setEditingTags] = useState(false)
-  const [selectedTags, setSelectedTags] = useState(p.tags || [])
 
   const toggleTag = tid => setSelectedTags(prev =>
     prev.includes(tid) ? prev.filter(x => x !== tid) : [...prev, tid]
