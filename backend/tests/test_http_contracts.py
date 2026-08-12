@@ -50,6 +50,44 @@ def test_analyze_accepts_an_uploaded_svg_and_returns_detected_fields(client):
     assert [element["id"] for element in elements] == ["recipient_name", "issue_date"]
 
 
+def test_svg_routes_reject_active_content_before_transforming_or_rendering(
+    client, backend_module, monkeypatch
+):
+    malicious = b'<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(1)</script></svg>'
+    render_called = False
+
+    def forbidden_render(*_args, **_kwargs):
+        nonlocal render_called
+        render_called = True
+        raise AssertionError("unsafe SVG reached the renderer")
+
+    monkeypatch.setattr(backend_module, "_svg_to_output", forbidden_render)
+
+    for route in ("/api/analyze", "/api/preview", "/api/generate"):
+        response = client.post(
+            route,
+            data={"file": (io.BytesIO(malicious), "malicious.svg")},
+            content_type="multipart/form-data",
+        )
+        assert response.status_code == 400
+        assert response.get_json() == {
+            "error": "SVG inválido o no permitido",
+            "code": "invalid_svg",
+        }
+
+    batch = client.post(
+        "/api/generate/batch",
+        data={
+            "file": (io.BytesIO(malicious), "malicious.svg"),
+            "csv_file": (io.BytesIO(b"Nombre\nAna\n"), "people.csv"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert batch.status_code == 400
+    assert batch.get_json()["code"] == "invalid_svg"
+    assert render_called is False
+
+
 def test_preview_fills_uploaded_svg_without_external_rendering(
     client, backend_module, monkeypatch
 ):

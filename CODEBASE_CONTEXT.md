@@ -3,7 +3,9 @@
 > Mapa de orientación rápida. No reemplaza al código ni a `ROADMAP.md`.
 > Última actualización: 2026-08-12.
 
-Estado operativo: la planificación está completa y la ejecución está pausada por el propietario. No comenzar fases hasta recibir una indicación explícita. La siguiente fase autorizable es la Fase 1 de `ROADMAP.md`.
+Estado operativo: Fases 0, 1 y 2 completadas en ramas de trabajo. La rama actual
+`phase/2-security` aún requiere Pull Request, checks remotos y confirmación del
+propietario antes de merge/despliegue. La siguiente fase es la Fase 3.
 
 ## Propósito del sistema
 
@@ -35,7 +37,7 @@ Supabase es la fuente de verdad. El modo `localStorage` debe quedar explícitame
 - Configuración frontend externa: `src/config.js`.
 - Cliente Supabase: `src/lib/supabase.js`.
 - Esquema versionado: `supabase/migrations/`.
-- Esquema de plantillas aún no integrado: `supabase_setup.sql`.
+- Esquema de plantillas: migración `20260812000000_secure_svg_templates.sql`; `supabase_setup.sql` queda como referencia compatible.
 
 `vercel.json` conserva un rewrite de `/api/*`, pero no existe una carpeta `api/` ni funciones serverless. Las llamadas de certificados usan la URL absoluta de Render. No deben añadirse llamadas relativas `/api/...` suponiendo que Vercel las redirige a Flask.
 
@@ -51,6 +53,9 @@ src/
   data/                    Constantes y datos iniciales del modo local.
 backend/
   app.py                   API Flask monolítica actual.
+  auth.py                  Verificación ES256/JWKS de sesiones Supabase.
+  svg_security.py          Frontera de validación de SVG y CSS.
+  template_storage.py      Escritura confiable de plantillas mediante service role.
   templates/               SVG incorporados y firma.
   fonts/                   Fuentes usadas al renderizar certificados.
   requirements.txt         Dependencias Python de producción.
@@ -172,9 +177,15 @@ Objetivo aprobado:
 
 El frontend usa Supabase Auth con correo/contraseña. Las políticas de las migraciones principales permiten CRUD al rol `authenticated` y bloquean `anon` por ausencia de políticas.
 
-El backend Flask no valida actualmente la sesión Supabase. El objetivo es verificar el JWT en rutas sensibles y conservar públicos únicamente los endpoints que se justifiquen, como un health check mínimo.
+El backend Flask verifica JWT ES256 contra el JWKS público de Supabase en todas
+las rutas `POST`. Permanecen públicos los health checks y la lectura validada de
+plantillas incorporadas. El frontend usa `certificateApiFetch` para adjuntar la
+sesión sin fijar manualmente el `Content-Type` de `FormData`.
 
-`supabase_setup.sql` define lectura pública para plantillas y un bucket público. Debe revisarse, migrarse formalmente y endurecerse sin romper previews.
+La migración `20260812000000_secure_svg_templates.sql` formaliza tabla, bucket y
+RLS de plantillas. El bucket conserva lectura pública para previews, pero usuarios
+`anon`/`authenticated` no pueden escribir: upload/delete pasan por Flask, que
+valida JWT y SVG antes de usar `SUPABASE_SERVICE_ROLE_KEY` solo en servidor.
 
 ## Backend Flask
 
@@ -192,6 +203,8 @@ Rutas actuales:
 | POST | `/api/generate/batch` | Convierte CSV en ZIP. |
 | POST | `/api/ai/mapeo` | Sugiere mapeo de IDs mediante IA. |
 | POST | `/api/cedulas/lookup` | Consulta nombres en servicios externos. |
+| POST | `/api/templates/upload` | Valida y persiste un SVG mediante la frontera confiable. |
+| POST | `/api/templates/delete` | Elimina metadata/objeto mediante la frontera confiable. |
 
 Pipeline aproximado de certificado:
 
@@ -242,7 +255,7 @@ Deuda conocida: `TODAY` queda congelado al importar el módulo y la revocación 
 - No hacer commits directos ni merge automático a `main`; trabajar por rama y PR, con confirmación del propietario.
 - No aplicar una reestructuración masiva a `app.py` o `CertificatesView.jsx`; extraer por etapas con pruebas.
 - No confiar ciegamente en documentos históricos cuando contradigan migraciones o código actual.
-- No usar `xlsx` para leer archivos no confiables hasta resolver el riesgo; hoy el proyecto lo usa para exportar.
+- La exportación usa ExcelJS mediante importación dinámica; `xlsx` ya no forma parte del proyecto.
 - Las referencias antiguas de documentación a `api/analyze.js`, funciones serverless Vercel y una migración futura a Supabase son obsoletas; el código vigente usa Flask en Render y Supabase ya está activo.
 
 ## Línea base y comandos
@@ -250,7 +263,7 @@ Deuda conocida: `TODAY` queda congelado al importar el módulo y la revocación 
 Desde la raíz del repositorio:
 
 ```text
-npm run lint   # actualmente falla: 2 errores y 17 advertencias
+npm run lint   # pasa con 0 errores; conserva 16 advertencias conocidas
 npm run build  # pasa con advertencia de chunk grande
 ```
 
@@ -259,16 +272,19 @@ GitHub Actions ejecuta actualmente análisis ESLint/Semgrep y Trivy/TruffleHog e
 Red de pruebas disponible:
 
 ```text
-npm test          # 19 pruebas Vitest de utilidades frontend
+npm test          # 41 pruebas Vitest frontend
 npm run lint      # 0 errores; 17 advertencias conocidas
 npm run build     # build de producción
 
 cd backend
 ../.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
-../.venv/Scripts/python.exe -m pytest   # 17 pruebas Flask/SVG/CSV
+../.venv/Scripts/python.exe -m pytest   # 101 pruebas backend
 ```
 
-Las pruebas backend bloquean red y efectos laterales de instalación de fuentes, simulan Cairo y no usan credenciales ni datos de producción. `requirements-dev.txt` permite recrear el entorno, pero el pin amplio de `openai` y las transitivas impiden considerarlo bit a bit determinista hasta la revisión de dependencias de Fase 2.
+Las pruebas backend bloquean red y efectos laterales, simulan Cairo y no usan
+credenciales ni datos de producción. Las dependencias directas están fijadas;
+`pip check`, `pip-audit` y `npm audit` pasan sin vulnerabilidades conocidas.
+La generación real PDF/PNG/ZIP y Gunicorn también tienen smoke local en Linux.
 
 ## Protocolo de reanudación
 

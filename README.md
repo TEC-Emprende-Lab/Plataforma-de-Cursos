@@ -105,7 +105,7 @@ El TEC Emprende Lab da cursos y talleres virtuales asincrónicos con un esquema 
 | Auth | Supabase Auth | — |
 | Hosting | Vercel | Fluid Compute |
 | PDF | jsPDF + jspdf-autotable | 4.x / 5.x |
-| Excel | xlsx (SheetJS) | 0.18 |
+| Excel | ExcelJS | 4.4 |
 | MCP servers | Supabase MCP `scope=project` | — |
 
 **No usamos:** TypeScript en runtime, frameworks de UI tipo Material/Chakra/Tailwind, librerías de state global. Mantenido deliberadamente liviano.

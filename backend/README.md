@@ -16,18 +16,35 @@ pip install -r requirements.txt
 > - **macOS:** `brew install cairo`
 > - **Windows:** Instalar [GTK3](https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases)
 
-## Uso
+## Uso local
 
 ```bash
+export APP_ENV=development
+export AUTH_MODE=disabled
+export CORS_ALLOWED_ORIGINS=http://localhost:5173
 python app.py
 # → Escucha en http://localhost:5050
 ```
+
+`AUTH_MODE=disabled` solo es válido en desarrollo o pruebas. En producción el
+servicio no arranca sin `SUPABASE_URL`, `CORS_ALLOWED_ORIGINS` y un almacén
+compartido de cuotas en `RATELIMIT_STORAGE_URI`. También requiere
+`SUPABASE_SERVICE_ROLE_KEY` exclusivamente en el servidor para persistir
+plantillas ya validadas; esa clave nunca se expone con el prefijo `VITE_`.
 
 Para usar el mapeo con IA, configura tu API key:
 ```bash
 export OPENAI_API_KEY=sk-...
 python app.py
 ```
+
+## Producción
+
+La imagen Docker instala las fuentes versionadas, ejecuta como usuario no-root
+y sirve la aplicación con Gunicorn. No descarga fuentes durante el arranque.
+Las rutas `POST` requieren un JWT de Supabase en
+`Authorization: Bearer <access_token>`; health, estado de IA y lectura de las
+plantillas incorporadas permanecen públicos.
 
 ## Endpoints
 

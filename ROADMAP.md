@@ -5,9 +5,11 @@
 
 ## Estado operativo actual
 
-**PLANIFICACIÓN COMPLETADA — EJECUCIÓN EN PAUSA POR INDICACIÓN DEL PROPIETARIO.**
+**FASES 0, 1 Y 2 COMPLETADAS EN RAMAS DE TRABAJO — SIGUIENTE: FASE 3.**
 
-No debe iniciarse ninguna fase de implementación hasta que el usuario lo indique explícitamente. Cuando autorice el inicio o diga “reanuda el trabajo”, se debe comenzar por la Fase 1, no por la Fase 2 ni por refactors estructurales.
+La ejecución fue autorizada el 2026-08-12. Los cambios permanecen fuera de
+`main`: deben publicarse mediante Pull Request, ejecutar checks remotos y recibir
+confirmación del propietario antes de integrarse o desplegarse.
 
 ## 1. Objetivo y reglas innegociables
 
@@ -41,16 +43,15 @@ Fecha de verificación: 2026-08-07.
 - Backend Render: `/api/health` responde `status=ok`, Cairo disponible e IA configurada.
 - `npm run build`: pasa; Vite advierte un chunk principal de aproximadamente 641 kB.
 - `npm run lint`: pasa con 0 errores y conserva 17 advertencias conocidas.
-- La red inicial contiene 19 pruebas Vitest para tiempo, cédulas y correos, y 17 pruebas pytest para SVG, CSV y contratos Flask. Todavía no hay E2E.
-- El backend dispone de `requirements-dev.txt`, `pytest.ini` y un `.venv/` local ignorado. La instalación es recreable, aunque no bit a bit determinista porque `openai` y dependencias transitivas aún no están totalmente fijadas; su revisión permanece en Fase 2.
+- La red actual contiene 41 pruebas Vitest y 101 pruebas pytest. Todavía no hay E2E.
+- Las dependencias directas Python están fijadas; `pip check`, `pip-audit` y `npm audit` no reportan vulnerabilidades conocidas en el conjunto actual.
 - El working tree ya contenía una modificación ajena en `backend/app.py`: un cambio de indentación en la llamada a `send_file`. Debe preservarse salvo autorización expresa.
-- `npm audit --omit=dev` reporta una vulnerabilidad alta en `xlsx` y vulnerabilidades transitivas en `dompurify`.
-- La aplicación renderiza SVG no confiable mediante `dangerouslySetInnerHTML` sin sanitización.
-- Flask carece actualmente de autenticación, límites de carga y rate limiting; CORS acepta orígenes arbitrarios.
-- La imagen Docker ejecuta el backend como `root` y arranca Flask mediante `app.run()` en lugar de un servidor WSGI de producción.
-- El procesamiento de URLs dinámicas y contenido remoto debe revisarse contra SSRF antes de aceptar entradas no confiables.
-- Las versiones fijadas de Pillow, lxml, CairoSVG, Flask y flask-cors fueron señaladas por Trivy y deben revalidarse; si los avisos siguen vigentes, se actualizarán de forma controlada y con pruebas de regresión.
-- Las migraciones principales sí habilitan RLS para cursos, etiquetas, participantes y tablas de relación. La tabla `svg_templates` y su bucket se crean fuera del flujo formal de migraciones en `supabase_setup.sql`.
+- `xlsx` fue reemplazado por ExcelJS cargado bajo demanda y DOMPurify quedó fijado en una versión auditada.
+- Las cuatro inserciones SVG pasan por un sanitizador único; Flask valida el contenido antes de transformar, renderizar o almacenar.
+- Flask verifica JWT ES256 de Supabase en rutas `POST`, aplica CORS exacto, límites de carga, cuotas por usuario y errores públicos estables.
+- La imagen Docker usa usuario no-root, fuentes versionadas y Gunicorn; no descarga recursos durante el arranque.
+- Las URLs externas, esquemas locales y CSS ofuscado se rechazan en SVG. La consulta de cédulas conserva únicamente dos hosts constantes y entrada numérica.
+- Las migraciones principales habilitan RLS para cursos, etiquetas, participantes y relaciones; la migración de Fase 2 integra también `svg_templates`, Storage y sus políticas.
 - Existen workflows de GitHub Actions para ESLint, Semgrep, Trivy y TruffleHog, con resultados SARIF documentados en `docs/CI-PIPELINE.md` y hallazgos en `docs/QA-FINDINGS.md`. Son una capa inicial de auditoría, no una puerta de integración completa: varios análisis continúan aunque encuentren problemas y todavía faltan build y tests.
 
 ## 4. Hallazgos priorizados
@@ -59,7 +60,7 @@ Fecha de verificación: 2026-08-07.
 
 - SVG almacenado o subido puede llegar sin sanitización a cuatro usos de `dangerouslySetInnerHTML`, creando riesgo de XSS almacenado.
 - Endpoints Flask costosos (`generate/batch`, `ai/mapeo`, `cedulas/lookup`) son públicos y no tienen cuotas ni autenticación.
-- `xlsx@0.18.5` presenta vulnerabilidades conocidas sin corrección disponible en el paquete actual del registro npm.
+- Las herramientas de exportación y build ya no conservan las vulnerabilidades conocidas que motivaron la Fase 2.
 - La sincronización de relaciones participante-curso y participante-etiqueta usa borrar y reinsertar sin transacción; un fallo intermedio puede perder relaciones.
 
 ### Medios
@@ -124,21 +125,21 @@ Validación de salida:
 
 ### Fase 2 — Contención de riesgos de seguridad
 
-Estado: **PENDIENTE**
+Estado: **COMPLETADA**
 Depende de: Fase 1.
 
-- [ ] Sanitizar SVG antes de cualquier render HTML y probar payloads XSS representativos.
-- [ ] Validar SVG también en la frontera backend/almacenamiento; definir elementos y atributos permitidos.
-- [ ] Establecer límites de bytes, filas de lote, formatos y tiempos de espera.
-- [ ] Sustituir respuestas con detalles internos por errores públicos estables y logging interno.
-- [ ] Restringir CORS mediante configuración de entorno.
-- [ ] Añadir rate limiting a endpoints costosos.
-- [ ] Verificar JWT de Supabase en rutas protegidas y enviar la sesión desde el frontend.
-- [ ] Añadir encabezados de seguridad compatibles con la UI existente, incluida una CSP probada.
-- [ ] Resolver `xlsx`: actualización segura si existe una distribución mantenida o sustitución incremental de la exportación.
-- [ ] Revisar y fijar dependencias Python efectivamente utilizadas, incluido el proveedor IA.
-- [ ] Eliminar la ejecución privilegiada del contenedor y servir Flask con un WSGI de producción.
-- [ ] Restringir y validar cualquier URL o recurso remoto aceptado por el backend para contener SSRF.
+- [x] Sanitizar SVG antes de cualquier render HTML y probar payloads XSS representativos.
+- [x] Validar SVG también en la frontera backend/almacenamiento; definir elementos y atributos permitidos.
+- [x] Establecer límites de bytes, filas de lote, formatos y tiempos de espera.
+- [x] Sustituir respuestas con detalles internos por errores públicos estables y logging interno.
+- [x] Restringir CORS mediante configuración de entorno.
+- [x] Añadir rate limiting a endpoints costosos.
+- [x] Verificar JWT de Supabase en rutas protegidas y enviar la sesión desde el frontend.
+- [x] Añadir encabezados de seguridad compatibles con la UI existente, incluida una CSP probada.
+- [x] Sustituir `xlsx` incrementalmente por ExcelJS.
+- [x] Revisar y fijar dependencias Python efectivamente utilizadas, incluidos ambos proveedores IA.
+- [x] Eliminar la ejecución privilegiada del contenedor y servir Flask con Gunicorn.
+- [x] Restringir y validar cualquier URL o recurso remoto aceptado por el backend para contener SSRF.
 
 Validación de salida:
 
@@ -155,7 +156,7 @@ Depende de: Fases 1 y 2.
 - [ ] Hacer que producción falle de forma segura si Supabase no está configurado.
 - [ ] Activar `localStorage` solo mediante una bandera explícita y únicamente en desarrollo.
 - [ ] Mantener la API pública de hooks mientras se separan adaptadores Supabase y desarrollo local.
-- [ ] Convertir `supabase_setup.sql` en migraciones reproducibles para `svg_templates`, Storage y RLS.
+- [x] Convertir `supabase_setup.sql` en una migración reproducible para `svg_templates`, Storage y RLS (adelantado por la frontera de seguridad de Fase 2).
 - [ ] Diseñar y aplicar una operación transaccional para relaciones de participantes.
 - [ ] Uniformar retornos y errores de mutaciones entre adaptadores.
 - [ ] Añadir estados de carga/error que eviten mensajes de éxito falsos.
@@ -242,6 +243,11 @@ Validación de salida:
 | 2026-08-12 | Fase 1 | `npm run lint` | Pasa con 0 errores; permanecen 17 advertencias de línea base. |
 | 2026-08-12 | Fase 1 | `npm run build` | Pasa; permanece advertencia por chunk principal de 640,83 kB. |
 | 2026-08-12 | Fase 1 | Revisiones independientes frontend y backend | Ambas puertas aprobadas; se corrigió el aislamiento de Cairo en Windows y una aserción SVG acoplada a serialización. |
+| 2026-08-12 | Fase 2 | `npm test`, lint, build y `npm audit` | 41 pruebas pasan; lint conserva 16 advertencias conocidas y 0 errores; Vite 8 compila; auditoría completa reporta 0 vulnerabilidades. |
+| 2026-08-12 | Fase 2 | `pytest`, `pip check` y `pip-audit` | 101 pruebas pasan; dependencias coherentes y 0 vulnerabilidades conocidas. |
+| 2026-08-12 | Fase 2 | Smoke Linux de CairoSVG | Generación HTTP individual PDF y lote de 2 PNG dentro de ZIP válidos. |
+| 2026-08-12 | Fase 2 | Smoke Linux de Gunicorn | Worker inicia, `/api/health` responde 200 y reporta Cairo disponible. |
+| 2026-08-12 | Fase 2 | Revisión independiente adversarial | Encontró y se corrigieron CSS ofuscado, recursos en `image-set`/`cross-fade`, orden auth/cuotas y escritura directa a Storage. |
 
 ## 7. Problemas y cambios respecto al plan
 
@@ -255,7 +261,10 @@ Validación de salida:
 - La revisión externa con Claude Code se intentó explícitamente con `--model sonnet`; la invocación con lectura directa agotó el tiempo disponible. La puerta de Fase 1 se apoyó por ello en dos revisores independientes internos, uno por frontend y otro por backend. Nunca se utilizó Opus.
 - El comentario de `time.js` afirma que el día de ingreso cuenta como día 1, mientras `daysElapsed` lo representa como 0 días transcurridos. La suite conserva el comportamiento real; aclarar la regla antes de cambiarla en Fase 4.
 - `ProfileView` ya cumple Rules of Hooks, pero `selectedTags` continúa siendo estado inicial y no se resincroniza si una misma instancia cambia de participante. Es deuda preexistente no ampliada por Fase 1.
+- La revisión externa con Claude Sonnet volvió a intentarse en Fase 2 en modo de solo lectura y agotó el tiempo sin producir hallazgos. La revisión adversarial interna sí completó varias rondas y sus cuatro bloqueos reproducibles fueron corregidos con pruebas.
+- Docker Desktop no estaba activo, por lo que no se ejecutó un `docker build` real. El contrato del Dockerfile tiene pruebas estáticas y el mismo stack se validó en Linux/WSL con CairoSVG y Gunicorn; el build de imagen permanece como check obligatorio del Pull Request.
+- La migración `20260812000000_secure_svg_templates.sql` debe aplicarse junto con el despliegue backend. Antes de desplegar, Render necesita `SUPABASE_SERVICE_ROLE_KEY`, `CORS_ALLOWED_ORIGINS` y `RATELIMIT_STORAGE_URI`; nunca exponer la service role al frontend.
 
 ## 8. Siguiente paso ejecutable
 
-Continuar con la Fase 2 en una rama dedicada, comenzando por contenciones pequeñas y verificables: sanitización SVG en todos los puntos de render, límites de entrada y errores públicos estables. Antes de modificar autenticación, CORS o contratos de acceso, caracterizar el flujo y seleccionar el cambio mínimo compatible con Supabase. No integrar con checks requeridos fallidos, regresiones nuevas o sin confirmación del propietario.
+Publicar la rama `phase/2-security` mediante Pull Request y ejecutar el build/smoke de Docker en CI. No desplegar el backend antes de configurar sus nuevas variables y aplicar la migración de plantillas. Tras la confirmación del propietario, la siguiente implementación es la Fase 3: hacer explícito el adaptador de persistencia, limitar `localStorage` a desarrollo y completar migraciones/transacciones reproducibles.

@@ -29,6 +29,16 @@ def backend_module():
     fake_cairosvg.svg2png = forbid_rendering
     fake_cairosvg.svg2pdf = forbid_rendering
     clean_environment = {
+        "APP_ENV": "test",
+        "AUTH_MODE": "disabled",
+        "CORS_ALLOWED_ORIGINS": "http://localhost:5173",
+        "RATELIMIT_STORAGE_URI": "memory://",
+        "RATE_LIMIT_ANALYZE": "1000 per minute",
+        "RATE_LIMIT_PREVIEW": "1000 per minute",
+        "RATE_LIMIT_GENERATE": "1000 per minute",
+        "RATE_LIMIT_BATCH": "1000 per minute",
+        "RATE_LIMIT_AI": "1000 per minute",
+        "RATE_LIMIT_CEDULAS": "1000 per minute",
         "ANTHROPIC_API_KEY": "",
         "OPENAI_API_KEY": "",
     }
@@ -52,6 +62,11 @@ def backend_module():
             raise
         finally:
             sys.dont_write_bytecode = previous_bytecode_setting
+
+    @module.app.route("/__test__/rate-limit", methods=["GET", "POST"])
+    @module.limiter.limit("1 per minute")
+    def _test_rate_limit():
+        return {"ok": True}
 
     return module
 

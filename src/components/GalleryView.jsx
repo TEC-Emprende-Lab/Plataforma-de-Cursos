@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTemplates } from '../hooks/useTemplates.js'
 import { isSupabaseConfigured } from '../lib/supabase.js'
 import { ConfirmDialog } from './UI.jsx'
+import { svgPreviewMarkup } from '../utils/svg.js'
 
 function ColorDot({ color }) {
   return (
@@ -36,7 +37,7 @@ function SvgPreviewCard({ tpl, loading, selected, onSelect, onPreview, onDelete 
           <div
             className="w-full h-full"
             style={{ transform:'scale(0.45)', transformOrigin:'top left', width:'222%', pointerEvents:'none' }}
-            dangerouslySetInnerHTML={{ __html: tpl.svgContent.replace(/<svg/, '<svg style="display:block;width:100%;height:auto"') }}
+            dangerouslySetInnerHTML={{ __html: svgPreviewMarkup(tpl.svgContent, { style:'display:block;width:100%;height:auto' }) }}
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-stone-300">
@@ -123,7 +124,7 @@ function SvgFullModal({ tpl, onClose, onUse }) {
         <div className="flex-1 overflow-auto p-6 bg-stone-50 flex items-center justify-center">
           {tpl.svgContent ? (
             <div className="bg-white rounded-xl shadow-md w-full max-w-3xl"
-              dangerouslySetInnerHTML={{ __html: tpl.svgContent.replace(/<svg/, '<svg style="display:block;width:100%;height:auto"') }} />
+              dangerouslySetInnerHTML={{ __html: svgPreviewMarkup(tpl.svgContent, { style:'display:block;width:100%;height:auto' }) }} />
           ) : (
             <div className="flex flex-col items-center gap-3 text-stone-300 py-20">
               <span className="material-symbols-outlined text-6xl">image_not_supported</span>
