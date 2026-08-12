@@ -1,6 +1,12 @@
 # Dependencias
 node_modules/
 
+# Python local
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
 # Build
 dist/
 dist-ssr/
@@ -30,6 +36,7 @@ Thumbs.db
 
 # Claude Code
 .claude/
+CLAUDE.md
 tasks/
 .agents/
 .playwright-mcp/
