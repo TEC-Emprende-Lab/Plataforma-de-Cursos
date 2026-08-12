@@ -50,3 +50,18 @@ python app.py
 Los campos editables usan `id` en el SVG:
 - `recipient_name` — Nombre del participante
 - `issue_date` — Fecha de emisión
+
+## Pruebas locales
+
+Desde `backend/`, crear un entorno virtual aislado e instalar las dependencias
+de desarrollo:
+
+```powershell
+python -m venv ../.venv
+../.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
+../.venv/Scripts/python.exe -m pytest
+```
+
+La suite bloquea las descargas durante la importación, desactiva las claves de
+IA y sustituye las consultas de cédulas. Por lo tanto, no requiere red ni accede
+a servicios de producción.

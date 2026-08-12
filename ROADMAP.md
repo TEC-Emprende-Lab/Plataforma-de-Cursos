@@ -40,9 +40,9 @@ Fecha de verificación: 2026-08-07.
 - Producción frontend: responde HTTP 200 y muestra el login de Supabase sin errores de consola en la carga inicial.
 - Backend Render: `/api/health` responde `status=ok`, Cairo disponible e IA configurada.
 - `npm run build`: pasa; Vite advierte un chunk principal de aproximadamente 641 kB.
-- `npm run lint`: falla con 2 errores de reglas de Hooks y 17 advertencias.
-- No hay archivos de pruebas unitarias, de integración ni E2E.
-- El Python global disponible no tiene Flask instalado; no constituye todavía un entorno reproducible del backend.
+- `npm run lint`: pasa con 0 errores y conserva 17 advertencias conocidas.
+- La red inicial contiene 19 pruebas Vitest para tiempo, cédulas y correos, y 17 pruebas pytest para SVG, CSV y contratos Flask. Todavía no hay E2E.
+- El backend dispone de `requirements-dev.txt`, `pytest.ini` y un `.venv/` local ignorado. La instalación es recreable, aunque no bit a bit determinista porque `openai` y dependencias transitivas aún no están totalmente fijadas; su revisión permanece en Fase 2.
 - El working tree ya contenía una modificación ajena en `backend/app.py`: un cambio de indentación en la llamada a `send_file`. Debe preservarse salvo autorización expresa.
 - `npm audit --omit=dev` reporta una vulnerabilidad alta en `xlsx` y vulnerabilidades transitivas en `dompurify`.
 - La aplicación renderiza SVG no confiable mediante `dangerouslySetInnerHTML` sin sanitización.
@@ -104,16 +104,16 @@ Validación de salida:
 
 ### Fase 1 — Red de seguridad y caracterización
 
-Estado: **PENDIENTE — NO INICIAR SIN INDICACIÓN DEL USUARIO**
+Estado: **COMPLETADA**
 Depende de: Fase 0.
 
-- [ ] Añadir Vitest con configuración mínima para utilidades JavaScript.
-- [ ] Añadir pytest y un entorno de dependencias de desarrollo reproducible para Flask.
-- [ ] Caracterizar `time.js`, cédulas, correos y transformaciones determinísticas.
-- [ ] Caracterizar helpers SVG, resolución de columnas CSV y contratos HTTP Flask.
-- [ ] Añadir pruebas de los defectos confirmados como regresiones esperadas antes de corregirlos.
-- [ ] Corregir los 2 errores actuales de lint sin cambios funcionales colaterales.
-- [ ] Definir comandos únicos de validación local para frontend y backend.
+- [x] Añadir Vitest con configuración mínima para utilidades JavaScript.
+- [x] Añadir pytest y un entorno de dependencias de desarrollo recreable para Flask.
+- [x] Caracterizar `time.js`, cédulas, correos y transformaciones determinísticas.
+- [x] Caracterizar helpers SVG, resolución de columnas CSV y contratos HTTP Flask.
+- [x] Añadir pruebas de caracterización que fallen si se rompen reglas cubiertas de vigencia, cédulas, correo, SVG, CSV o contratos HTTP.
+- [x] Corregir los 2 errores actuales de lint sin cambios funcionales colaterales.
+- [x] Definir comandos únicos de validación local para frontend y backend.
 
 Validación de salida:
 
@@ -237,6 +237,11 @@ Validación de salida:
 | 2026-08-12 | Fase 0 | Auditoría de los 8 commits de Ximena incorporados en `origin/main` | No cambian arquitectura ni código funcional; añaden CI de auditoría, documentación QA y eliminan la propuesta obsoleta `NOTES.MD`. |
 | 2026-08-12 | Fase 0 | Revisión independiente de commits y documentos QA/CI | Confirma que los workflows son parcialmente no bloqueantes y que deben integrarse al plan, no reemplazar las fases de pruebas y seguridad. |
 | 2026-08-12 | Higiene local | Limpieza del entorno Python accidental | `.venv/` (4.158 archivos) se movió a la Papelera y se añadieron exclusiones Python a `.gitignore`. |
+| 2026-08-12 | Fase 1 | `npm test` | 3 archivos y 19 pruebas Vitest pasan. |
+| 2026-08-12 | Fase 1 | `python -m pytest` desde `backend/` | 17 pruebas pasan; Cairo/IA/red/servicios externos quedan aislados mediante dobles. |
+| 2026-08-12 | Fase 1 | `npm run lint` | Pasa con 0 errores; permanecen 17 advertencias de línea base. |
+| 2026-08-12 | Fase 1 | `npm run build` | Pasa; permanece advertencia por chunk principal de 640,83 kB. |
+| 2026-08-12 | Fase 1 | Revisiones independientes frontend y backend | Ambas puertas aprobadas; se corrigió el aislamiento de Cairo en Windows y una aserción SVG acoplada a serialización. |
 
 ## 7. Problemas y cambios respecto al plan
 
@@ -247,7 +252,10 @@ Validación de salida:
 - El 2026-08-11 `origin/main` recibió una capa inicial de análisis automático: ESLint, Semgrep, Trivy y TruffleHog con SARIF, además de `docs/CI-PIPELINE.md` y `docs/QA-FINDINGS.md`. No se considera completada la Fase 6 porque no ejecuta build/tests y varios hallazgos solo se reportan. `ci-setup/eslint.config.js` no es la configuración activa del proyecto y deberá evaluarse antes de conservarlo a largo plazo.
 - `docs/QA-FINDINGS.md` es una instantánea útil, no una fuente infalible: sus referencias de línea pueden quedar obsoletas y cualquier hallazgo debe confirmarse contra el código y las versiones vigentes antes de corregirlo.
 - El flujo obligatorio para futuras fases es: rama dedicada → validaciones locales aplicables, documentando la línea base preexistente → Pull Request a `main` → checks remotos requeridos → revisión por al menos un subagente independiente adecuado (Claude/Sonnet si está disponible) → correcciones → confirmación del propietario → merge. Para integrar, los checks requeridos deben estar verdes y no puede haber regresiones nuevas; la protección efectiva de `main` deberá configurarse en GitHub.
+- La revisión externa con Claude Code se intentó explícitamente con `--model sonnet`; la invocación con lectura directa agotó el tiempo disponible. La puerta de Fase 1 se apoyó por ello en dos revisores independientes internos, uno por frontend y otro por backend. Nunca se utilizó Opus.
+- El comentario de `time.js` afirma que el día de ingreso cuenta como día 1, mientras `daysElapsed` lo representa como 0 días transcurridos. La suite conserva el comportamiento real; aclarar la regla antes de cambiarla en Fase 4.
+- `ProfileView` ya cumple Rules of Hooks, pero `selectedTags` continúa siendo estado inicial y no se resincroniza si una misma instancia cambia de participante. Es deuda preexistente no ampliada por Fase 1.
 
 ## 8. Siguiente paso ejecutable
 
-Esperar una indicación explícita del usuario. Cuando llegue, crear o reutilizar una rama dedicada desde `main` actualizado y comenzar la Fase 1 con el arnés mínimo de Vitest y pytest. Antes del Pull Request, ejecutar las validaciones locales aplicables y documentar cualquier fallo preexistente; después, atender checks remotos y revisión independiente. No integrar con checks requeridos fallidos, regresiones nuevas o sin confirmación del propietario. No iniciar refactors estructurales ni cambios de persistencia antes de contar con pruebas de caracterización.
+Continuar con la Fase 2 en una rama dedicada, comenzando por contenciones pequeñas y verificables: sanitización SVG en todos los puntos de render, límites de entrada y errores públicos estables. Antes de modificar autenticación, CORS o contratos de acceso, caracterizar el flujo y seleccionar el cambio mínimo compatible con Supabase. No integrar con checks requeridos fallidos, regresiones nuevas o sin confirmación del propietario.

@@ -13,7 +13,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 
 export default [
   // Ignorar artefactos y dependencias
-  { ignores: ['dist/**', 'node_modules/**', 'backend/**', '*.config.js'] },
+  { ignores: ['dist/**', 'node_modules/**', '.venv/**', 'venv/**', 'backend/**', '*.config.js'] },
 
   // Reglas recomendadas base de JS
   js.configs.recommended,

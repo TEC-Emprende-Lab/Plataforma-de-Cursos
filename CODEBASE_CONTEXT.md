@@ -256,9 +256,19 @@ npm run build  # pasa con advertencia de chunk grande
 
 GitHub Actions ejecuta actualmente análisis ESLint/Semgrep y Trivy/TruffleHog en `main` y `develop`. Aún debe añadirse una puerta completa con build, pruebas y build de Docker.
 
-Todavía no existe un comando de tests. La Fase 1 de `ROADMAP.md` debe añadirlo para frontend y backend.
+Red de pruebas disponible:
 
-El intérprete Python global actual no tiene Flask. Debe utilizarse un entorno virtual reproducible antes de ejecutar pruebas Flask.
+```text
+npm test          # 19 pruebas Vitest de utilidades frontend
+npm run lint      # 0 errores; 17 advertencias conocidas
+npm run build     # build de producción
+
+cd backend
+../.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
+../.venv/Scripts/python.exe -m pytest   # 17 pruebas Flask/SVG/CSV
+```
+
+Las pruebas backend bloquean red y efectos laterales de instalación de fuentes, simulan Cairo y no usan credenciales ni datos de producción. `requirements-dev.txt` permite recrear el entorno, pero el pin amplio de `openai` y las transitivas impiden considerarlo bit a bit determinista hasta la revisión de dependencias de Fase 2.
 
 ## Protocolo de reanudación
 
