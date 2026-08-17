@@ -1,44 +1,142 @@
 // ============================================================
-//  useAuth.js — Hook de sesión Supabase
-//  Si supabase no está configurado, retorna user=null sin
-//  loading (modo legacy). signIn/signOut fallan con mensaje
-//  claro en ese caso.
+// useAuth.js — Hook de sesión
+//
+// La implementación de autenticación se delega al adapter
+// correspondiente según VITE_STORAGE_MODE.
+//
+// API pública:
+//   { user, loading, signIn, signOut }
 // ============================================================
 
-import { useEffect, useState, useCallback } from 'react'
-import { supabase, storageMode } from '../lib/supabase.js'
+import {
+  useEffect,
+  useState,
+  useCallback,
+} from 'react'
+
+import { storageMode } from '../lib/supabase.js'
+
+import {
+  authLocalAdapter,
+} from '../adapters/local/authAdapter.js'
+
+import {
+  authSupabaseAdapter,
+} from '../adapters/supabase/authAdapter.js'
+
+// ============================================================
+// Seleccionar adapter
+// ============================================================
+
+const authAdapter =
+  storageMode === 'local'
+    ? authLocalAdapter
+    : authSupabaseAdapter
+
+// ============================================================
+// Hook
+// ============================================================
 
 export function useAuth() {
+
   const [user, setUser] = useState(null)
+
   const [loading, setLoading] = useState(
     storageMode === 'supabase'
   )
 
+  // ----------------------------------------------------------
+  // Obtener sesión inicial
+  // ----------------------------------------------------------
+
   useEffect(() => {
-    if (storageMode === 'local') return
+    let cancelled = false
 
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null)
-      setLoading(false)
-    })
+    authAdapter
+      .getSession()
+      .then(session => {
+        if (cancelled) return
 
-    const { data: sub } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
         setUser(session?.user ?? null)
+        setLoading(false)
+      })
+      .catch(error => {
+        if (cancelled) return
+
+        console.error(
+          '[useAuth] getSession',
+          error
+        )
+
+        setUser(null)
+        setLoading(false)
+      })
+
+    // --------------------------------------------------------
+    // Escuchar cambios de autenticación
+    // --------------------------------------------------------
+
+    const subscription =
+      authAdapter.onAuthStateChange(session => {
+        if (!cancelled) {
+          setUser(session?.user ?? null)
+        }
+      })
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  // ----------------------------------------------------------
+  // Iniciar sesión
+  // ----------------------------------------------------------
+
+  const signIn = useCallback(
+    async (email, password) => {
+      try {
+        return await authAdapter.signIn(
+          email,
+          password
+        )
+      } catch (error) {
+        console.error(
+          '[useAuth] signIn',
+          error
+        )
+
+        return { error }
       }
-    )
+    },
+    []
+  )
 
-    return () => sub.subscription.unsubscribe()
-  }, [])
-
-  const signIn = useCallback(async (email, password) => {
-    return supabase.auth.signInWithPassword({ email, password })
-  }, [])
+  // ----------------------------------------------------------
+  // Cerrar sesión
+  // ----------------------------------------------------------
 
   const signOut = useCallback(async () => {
-    if (storageMode === 'local') return { error: null }
-    return supabase.auth.signOut()
+    try {
+      return await authAdapter.signOut()
+    } catch (error) {
+      console.error(
+        '[useAuth] signOut',
+        error
+      )
+
+      return { error }
+    }
   }, [])
 
-  return { user, loading, signIn, signOut }
+  // ----------------------------------------------------------
+  // API pública
+  // ----------------------------------------------------------
+
+  return {
+    user,
+    loading,
+    signIn,
+    signOut,
+  }
 }
