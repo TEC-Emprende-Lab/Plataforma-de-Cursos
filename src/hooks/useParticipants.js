@@ -17,7 +17,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { STORAGE_KEY, DEFAULT_PARTICIPANTS } from '../data/constants.js'
 import { isExpired, todayISO } from '../utils/time.js'
 import { normalizeCedula } from '../utils/cedula.js'
-import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { supabase, storageMode } from '../lib/supabase.js'
 
 const PARTICIPANT_SELECT =
   'id,name,cedula,email,phone,status,payment,access,fecha,notes,' +
@@ -99,18 +99,18 @@ function applyAutoRevoke(list) {
 
 export function useParticipants() {
   const [participants, setParticipants] = useState(() =>
-    isSupabaseConfigured ? [] : applyAutoRevoke(loadLocal())
+    storageMode=== 'supabase' ? [] : applyAutoRevoke(loadLocal())
   )
 
   // Persistencia local en modo legacy
   useEffect(() => {
-    if (isSupabaseConfigured) return
+    if (storageMode=== 'supabase') return
     localStorage.setItem(STORAGE_KEY, JSON.stringify(participants))
   }, [participants])
 
   // Fetch inicial desde Supabase
   useEffect(() => {
-    if (!isSupabaseConfigured) return
+    if (storageMode=== 'local') return
     supabase.from('participants').select(PARTICIPANT_SELECT).order('name')
       .then(({ data, error }) => {
         if (error) console.error('[useParticipants] fetch', error)
@@ -119,7 +119,7 @@ export function useParticipants() {
   }, [])
 
   const addParticipant = useCallback(async (form) => {
-    if (!isSupabaseConfigured) {
+    if (storageMode=== 'local') {
       setParticipants(prev => [...prev, {
         id:     'p' + Date.now(),
         ...form,
@@ -139,7 +139,7 @@ export function useParticipants() {
   }, [])
 
   const updateParticipant = useCallback(async (id, form) => {
-    if (!isSupabaseConfigured) {
+    if (storageMode=== 'local') {
       setParticipants(prev =>
         prev.map(p => p.id === id ? { ...p, ...form, tags: form.tags || p.tags || [] } : p)
       )
@@ -154,7 +154,7 @@ export function useParticipants() {
   }, [])
 
   const deleteParticipant = useCallback(async (id) => {
-    if (!isSupabaseConfigured) {
+    if (storageMode=== 'local') {
       setParticipants(prev => prev.filter(p => p.id !== id))
       return
     }
@@ -164,7 +164,7 @@ export function useParticipants() {
   }, [])
 
   const toggleAccess = useCallback(async (id) => {
-    if (!isSupabaseConfigured) {
+    if (storageMode=== 'local') {
       setParticipants(prev =>
         prev.map(p => {
           if (p.id !== id) return p
@@ -187,7 +187,7 @@ export function useParticipants() {
   }, [participants])
 
   const renewAccess = useCallback(async (id) => {
-    if (!isSupabaseConfigured) {
+    if (storageMode=== 'local') {
       setParticipants(prev =>
         prev.map(p => p.id === id ? { ...p, access: true, fecha: todayISO() } : p)
       )
@@ -203,7 +203,7 @@ export function useParticipants() {
   /** Importa una lista. Retorna los IDs nuevos para que el caller
    *  pueda aplicarles ajustes en lote (curso, pago, acceso). */
   const importParticipants = useCallback(async (list) => {
-    if (!isSupabaseConfigured) {
+    if (storageMode=== 'local') {
       const newPs = list.map((imp, i) => ({
         id:      'p' + Date.now() + i,
         name:    imp.name    || 'Sin nombre',
@@ -254,7 +254,7 @@ export function useParticipants() {
    *  addCourses: array de course IDs a agregar (no reemplaza, solo agrega). */
   const bulkUpdate = useCallback(async (ids, patch = {}, addCourses = []) => {
     if (!ids?.length) return
-    if (!isSupabaseConfigured) {
+    if (storageMode=== 'local') {
       setParticipants(prev => prev.map(p => {
         if (!ids.includes(p.id)) return p
         const newCourses = [...new Set([...(p.courses || []), ...addCourses])]

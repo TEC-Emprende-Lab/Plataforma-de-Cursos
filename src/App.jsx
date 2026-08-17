@@ -4,7 +4,7 @@
 //  El guard de sesión se hace afuera (App) y el contenido vive
 //  en AuthenticatedApp para no romper Rules of Hooks.
 // ============================================================
-
+import { storageMode } from './lib/supabase.js'
 import { useState, useCallback } from 'react'
 import { useParticipants }  from './hooks/useParticipants.js'
 import { useTags }          from './hooks/useTags.js'
@@ -29,13 +29,12 @@ import CommandPalette       from './components/CommandPalette.jsx'
 import { useGlobalShortcut } from './hooks/useGlobalShortcut.js'
 
 export default function App() {
-  const { user, loading, signIn, signOut, isSupabaseConfigured } = useAuth()
+  const { user, loading, signIn, signOut } = useAuth()
   const { theme, toggleTheme } = useTheme()
-
-  if (isSupabaseConfigured && loading) {
+  if (storageMode === 'supabase' && loading) {
     return <div className="login-shell"><div className="poppins-medium text-muted">Cargando…</div></div>
   }
-  if (isSupabaseConfigured && !user) {
+  if (storageMode === 'supabase' && !user) {
     return <LoginView onSignIn={signIn}/>
   }
   return <AuthenticatedApp user={user} onSignOut={signOut} theme={theme} toggleTheme={toggleTheme}/>

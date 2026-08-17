@@ -153,8 +153,8 @@ Validación de salida:
 Estado: **PENDIENTE**
 Depende de: Fases 1 y 2.
 
-- [ ] Hacer que producción falle de forma segura si Supabase no está configurado.
-- [ ] Activar `localStorage` solo mediante una bandera explícita y únicamente en desarrollo.
+- [x] Hacer que producción falle de forma segura si Supabase no está configurado.
+- [x] Activar `localStorage` solo mediante una bandera explícita y únicamente en desarrollo.
 - [ ] Mantener la API pública de hooks mientras se separan adaptadores Supabase y desarrollo local.
 - [x] Convertir `supabase_setup.sql` en una migración reproducible para `svg_templates`, Storage y RLS (adelantado por la frontera de seguridad de Fase 2).
 - [ ] Diseñar y aplicar una operación transaccional para relaciones de participantes.

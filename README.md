@@ -236,7 +236,7 @@ npm run dev
 
 **Login local**: tiene que existir un usuario en Supabase Auth. Pedile al admin que te cree uno en el [dashboard](https://supabase.com/dashboard/project/qhmynvpgmrupqzojcvua/auth/users).
 
-> **Tip:** si no querés pegar la app a la DB real mientras desarrollás, dejá `.env.local` sin las `VITE_SUPABASE_*`. Arranca en modo legacy con `localStorage`.
+> **Tip:** si no querés pegar la app a la DB real mientras desarrollás, dejá `.env.local` con `VITE_STORAGE_MODE=local`. Arranca en modo legacy con `localStorage`.
 
 ---
 

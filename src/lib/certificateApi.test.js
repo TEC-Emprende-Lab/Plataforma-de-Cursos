@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./supabase.js', () => ({
-  isSupabaseConfigured: true,
+  storageMode: 'supabase',
   supabase: {
     auth: {
       getSession: vi.fn(),

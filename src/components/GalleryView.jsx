@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useTemplates } from '../hooks/useTemplates.js'
-import { isSupabaseConfigured } from '../lib/supabase.js'
+import { storageMode } from '../lib/supabase.js'
 import { ConfirmDialog } from './UI.jsx'
 import { svgPreviewMarkup } from '../utils/svg.js'
 
@@ -224,13 +224,13 @@ function UploadModal({ onClose, onSave, uploading, error }) {
 
           {/* Indicador de almacenamiento */}
           <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${
-            isSupabaseConfigured
+            storageMode==='supabase'
               ? 'bg-green-50 border border-green-200 text-green-700'
               : 'bg-amber-50 border border-amber-200 text-amber-700'}`}>
             <span className="material-symbols-outlined" style={{fontSize:14}}>
-              {isSupabaseConfigured ? 'cloud_upload' : 'memory'}
+              {storageMode==='supabase' ? 'cloud_upload' : 'memory'}
             </span>
-            {isSupabaseConfigured
+            {storageMode==='supabase'
               ? 'Se guardará en Supabase Storage y estará disponible para todos.'
               : 'Supabase no configurado — la plantilla se guardará solo en esta sesión.'}
           </div>
@@ -342,7 +342,7 @@ export default function GalleryView({ onUseCertificate }) {
           </h2>
           <p style={{ fontSize:13, color:'var(--gray)', marginTop:4 }}>
             Explorá y administrá las plantillas SVG para certificados
-            {isSupabaseConfigured
+            {storageMode==='supabase'
               ? <span className="ml-2 text-green-600 font-medium">· Sincronizado con Supabase</span>
               : <span className="ml-2 text-amber-600 font-medium">· Solo en memoria (configura Supabase para persistir)</span>}
           </p>

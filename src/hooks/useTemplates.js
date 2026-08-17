@@ -27,7 +27,7 @@
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { supabase, storageMode } from '../lib/supabase.js'
 import { CERT_API } from '../config.js'
 import { sanitizeSvg } from '../utils/svg.js'
 import { certificateApiFetch } from '../lib/certificateApi.js'
@@ -81,7 +81,7 @@ export function useTemplates() {
 
   // ── Cargar desde Supabase ──────────────────────────────────
   const loadFromDb = useCallback(async () => {
-    if (!isSupabaseConfigured) return
+    if (storageMode=== 'local') return
     setLoading(true)
     try {
       const { data, error: err } = await supabase
@@ -123,7 +123,7 @@ export function useTemplates() {
     }
 
     // Custom: cargar desde Supabase Storage
-    if (tpl.storage_path && isSupabaseConfigured) {
+    if (tpl.storage_path && storageMode=== 'supabase') {
       try {
         const { data } = supabase.storage.from(BUCKET).getPublicUrl(tpl.storage_path)
         const r = await fetch(data.publicUrl)
@@ -170,7 +170,7 @@ export function useTemplates() {
         if (nameEl) name_id = nameEl.id
         if (dateEl) date_id = dateEl.id
       } catch (e) {
-        if (isSupabaseConfigured) throw e
+        if (storageMode=== 'supabase') throw e
       }
 
       const newTpl = {
@@ -191,7 +191,7 @@ export function useTemplates() {
       }
 
       // Si Supabase está configurado: subir al storage y guardar metadata
-      if (isSupabaseConfigured) {
+      if (storageMode=== 'supabase') {
         const form = new FormData()
         form.append('file', safeFile)
         for (const key of ['name', 'style', 'course', 'name_id', 'date_id']) {
@@ -227,7 +227,7 @@ export function useTemplates() {
     const tpl = templates.find(t => t.id === id)
     if (!tpl || tpl.is_builtin) return
 
-    if (isSupabaseConfigured) {
+    if (storageMode=== 'supabase') {
       const response = await certificateApiFetch(`${CERT_API}/api/templates/delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

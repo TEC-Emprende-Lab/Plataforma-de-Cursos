@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { DEFAULT_TAGS, TAGS_STORAGE_KEY } from '../data/tags.js'
-import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import { supabase, storageMode } from '../lib/supabase.js'
 
 function loadLocal() {
   try {
@@ -19,17 +19,17 @@ function loadLocal() {
 }
 
 export function useTags() {
-  const [tags, setTags] = useState(() => isSupabaseConfigured ? [] : loadLocal())
+  const [tags, setTags] = useState(() => storageMode=== 'supabase' ? [] : loadLocal())
 
   // Persistencia local en modo legacy
   useEffect(() => {
-    if (isSupabaseConfigured) return
+    if (storageMode=== 'supabase') return
     localStorage.setItem(TAGS_STORAGE_KEY, JSON.stringify(tags))
   }, [tags])
 
   // Fetch inicial desde Supabase
   useEffect(() => {
-    if (!isSupabaseConfigured) return
+    if (storageMode=== 'local') return
     supabase.from('tags').select('id,name,color').order('name')
       .then(({ data, error }) => {
         if (error) console.error('[useTags] fetch', error)
@@ -38,7 +38,7 @@ export function useTags() {
   }, [])
 
   const addTag = useCallback(async (name, color) => {
-    if (!isSupabaseConfigured) {
+    if (storageMode=== 'local') {
       setTags(prev => [...prev, { id: 't' + Date.now(), name, color }])
       return
     }
@@ -49,7 +49,7 @@ export function useTags() {
   }, [])
 
   const editTag = useCallback(async (id, name, color) => {
-    if (!isSupabaseConfigured) {
+    if (storageMode=== 'local') {
       setTags(prev => prev.map(t => t.id === id ? { ...t, name, color } : t))
       return
     }
@@ -60,7 +60,7 @@ export function useTags() {
   }, [])
 
   const deleteTag = useCallback(async (id, setParticipants) => {
-    if (!isSupabaseConfigured) {
+    if (storageMode=== 'local') {
       setTags(prev => prev.filter(t => t.id !== id))
       if (setParticipants) {
         setParticipants(prev =>
