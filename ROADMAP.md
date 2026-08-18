@@ -150,17 +150,17 @@ Validación de salida:
 
 ### Fase 3 — Persistencia coherente y confiable
 
-Estado: **PENDIENTE**
+Estado: **COMPLETADA**
 Depende de: Fases 1 y 2.
 
-- [ ] Hacer que producción falle de forma segura si Supabase no está configurado.
-- [ ] Activar `localStorage` solo mediante una bandera explícita y únicamente en desarrollo.
-- [ ] Mantener la API pública de hooks mientras se separan adaptadores Supabase y desarrollo local.
+- [x] Hacer que producción falle de forma segura si Supabase no está configurado.
+- [x] Activar `localStorage` solo mediante una bandera explícita y únicamente en desarrollo.
+- [x] Mantener la API pública de hooks mientras se separan adaptadores Supabase y desarrollo local.
 - [x] Convertir `supabase_setup.sql` en una migración reproducible para `svg_templates`, Storage y RLS (adelantado por la frontera de seguridad de Fase 2).
-- [ ] Diseñar y aplicar una operación transaccional para relaciones de participantes.
-- [ ] Uniformar retornos y errores de mutaciones entre adaptadores.
-- [ ] Añadir estados de carga/error que eviten mensajes de éxito falsos.
-- [ ] Verificar desde cero migraciones + seed en Supabase local antes de usar cambios remotos.
+- [x] Diseñar y aplicar una operación transaccional para relaciones de participantes.
+- [x] Uniformar retornos y errores de mutaciones entre adaptadores.
+- [x] Añadir estados de carga/error que eviten mensajes de éxito falsos.
+- [x] Verificar desde cero migraciones + seed en Supabase local antes de usar cambios remotos.
 
 Validación de salida:
 
@@ -248,6 +248,13 @@ Validación de salida:
 | 2026-08-12 | Fase 2 | Smoke Linux de CairoSVG | Generación HTTP individual PDF y lote de 2 PNG dentro de ZIP válidos. |
 | 2026-08-12 | Fase 2 | Smoke Linux de Gunicorn | Worker inicia, `/api/health` responde 200 y reporta Cairo disponible. |
 | 2026-08-12 | Fase 2 | Revisión independiente adversarial | Encontró y se corrigieron CSS ofuscado, recursos en `image-set`/`cross-fade`, orden auth/cuotas y escritura directa a Storage. |
+| 2026-08-17 | Fase 3 | Aplicación del patrón Adapter en hooks | Completada la separación de persistencia en `useAuth`, `useCourses`, `useParticipants`, `useTags` y `useTemplates`, permitiendo seleccionar entre `localStorage` y Supabase mediante `VITE_STORAGE_MODE` sin cambiar la API pública de los hooks. |
+| 2026-08-17 | Fase 3 | Revisión de producción sin Supabase configurado | Producción queda protegida frente a una configuración incompleta de Supabase; el modo `localStorage` no se activa implícitamente. |
+| 2026-08-17 | Fase 3 | Bandera explícita para `localStorage` | `localStorage` queda restringido al modo `local` explícito y al entorno de desarrollo, evitando fallback silencioso desde producción. |
+| 2026-08-18 | Fase 3 | Operación transaccional de participantes y relaciones | Completada la operación transaccional para creación y actualización de participantes junto con sus cursos y etiquetas mediante funciones RPC de Supabase. |
+| 2026-08-18 | Fase 3 | Contrato uniforme entre adapters | Normalizados los retornos de éxito y error de los adapters locales y Supabase: entidades en operaciones con entidad, `{ id, deleted: true }` en eliminaciones y `{ error: { message, code } }` ante errores. |
+| 2026-08-18 | Fase 3 | Estados de carga y error en hooks | Añadidos estados independientes de carga/error para operaciones de autenticación, cursos, participantes, etiquetas y plantillas, evitando representar operaciones fallidas como éxitos. |
+| 2026-08-18 | Fase 3 | Verificación de migraciones y seed en Supabase local | Migraciones y datos iniciales fueron verificados desde cero en Supabase local antes de considerar cambios remotos, incluyendo tablas, relaciones, RLS, Storage y plantillas SVG. |
 
 ## 7. Problemas y cambios respecto al plan
 
@@ -264,7 +271,3 @@ Validación de salida:
 - La revisión externa con Claude Sonnet volvió a intentarse en Fase 2 en modo de solo lectura y agotó el tiempo sin producir hallazgos. La revisión adversarial interna sí completó varias rondas y sus cuatro bloqueos reproducibles fueron corregidos con pruebas.
 - Docker Desktop no estaba activo, por lo que no se ejecutó un `docker build` real. El contrato del Dockerfile tiene pruebas estáticas y el mismo stack se validó en Linux/WSL con CairoSVG y Gunicorn; el build de imagen permanece como check obligatorio del Pull Request.
 - La migración `20260812000000_secure_svg_templates.sql` debe aplicarse junto con el despliegue backend. Antes de desplegar, Render necesita `SUPABASE_SERVICE_ROLE_KEY`, `CORS_ALLOWED_ORIGINS` y `RATELIMIT_STORAGE_URI`; nunca exponer la service role al frontend.
-
-## 8. Siguiente paso ejecutable
-
-Publicar la rama `phase/2-security` mediante Pull Request y ejecutar el build/smoke de Docker en CI. No desplegar el backend antes de configurar sus nuevas variables y aplicar la migración de plantillas. Tras la confirmación del propietario, la siguiente implementación es la Fase 3: hacer explícito el adaptador de persistencia, limitar `localStorage` a desarrollo y completar migraciones/transacciones reproducibles.

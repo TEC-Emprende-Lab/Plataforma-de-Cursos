@@ -1,9 +1,9 @@
-import { isSupabaseConfigured, supabase } from './supabase.js'
+import { storageMode, supabase } from './supabase.js'
 
 export async function certificateApiFetch(input, init = {}) {
   const headers = new Headers(init.headers || {})
 
-  if (isSupabaseConfigured) {
+  if (storageMode=== 'supabase') {
     const { data, error } = await supabase.auth.getSession()
     if (error) throw error
     const token = data.session?.access_token

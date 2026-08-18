@@ -1,304 +1,801 @@
 // ============================================================
-//  useParticipants.js — Hook de participantes
-//  Si Supabase está configurado: lee/escribe tablas
-//    `participants`, `participant_courses`, `participant_tags`.
-//  Si no: fallback localStorage.
-//  API pública intacta:
-//    { participants, setParticipants, addParticipant,
-//      updateParticipant, deleteParticipant, toggleAccess,
-//      renewAccess, importParticipants }
+// useParticipants.js — Hook de participantes
 //
-//  Mapeo DB ↔ app:
-//    participant.courses[] (IDs de cursos)  ←  participant_courses
-//    participant.tags[]    (IDs de tags)    ←  participant_tags
+// La persistencia se delega al adapter correspondiente.
+//
+// El hook mantiene la API pública de la aplicación y gestiona:
+//   - Estado de participantes
+//   - Carga inicial
+//   - Estados de carga/error por operación
+//   - Agregar, actualizar y eliminar participantes
+//   - Acceso y renovación
+//   - Importación
+//   - Actualización masiva
+//
+// Los adapters retornan errores mediante:
+//   { error: { message, code } }
+//
+// Excepción legítima:
+//   import() puede retornar:
+//   { participants, errors }
+//   para representar errores parciales.
 // ============================================================
 
-import { useState, useEffect, useCallback } from 'react'
-import { STORAGE_KEY, DEFAULT_PARTICIPANTS } from '../data/constants.js'
-import { isExpired, todayISO } from '../utils/time.js'
-import { normalizeCedula } from '../utils/cedula.js'
-import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import {
+  useState,
+  useEffect,
+  useCallback,
+} from 'react'
 
-const PARTICIPANT_SELECT =
-  'id,name,cedula,email,phone,status,payment,access,fecha,notes,' +
-  'participant_courses(course_id),participant_tags(tag_id)'
+import { storageMode } from '../lib/supabase.js'
+import { isExpired } from '../utils/time.js'
 
-function fromDb(row) {
-  if (!row) return null
+import {
+  participantsLocalAdapter,
+} from '../adapters/local/participantsAdapter.js'
+
+import {
+  participantsSupabaseAdapter,
+} from '../adapters/supabase/participantsAdapter.js'
+
+// ============================================================
+// Seleccionar adapter
+// ============================================================
+
+const participantsAdapter =
+  storageMode === 'local'
+    ? participantsLocalAdapter
+    : participantsSupabaseAdapter
+
+// ============================================================
+// Helpers
+// ============================================================
+
+function createHookError(
+  message,
+  code
+) {
   return {
-    id:      row.id,
-    name:    row.name,
-    cedula:  row.cedula ?? '',
-    email:   row.email ?? '',
-    phone:   row.phone ?? '',
-    status:  row.status,
-    payment: row.payment,
-    access:  row.access,
-    fecha:   row.fecha ?? '',
-    notes:   row.notes ?? '',
-    courses: (row.participant_courses || []).map(x => x.course_id),
-    tags:    (row.participant_tags    || []).map(x => x.tag_id),
+    message,
+    code,
   }
 }
 
-function baseFromForm(form) {
+function normalizeError(
+  error,
+  fallbackMessage,
+  fallbackCode
+) {
   return {
-    name:    form.name ?? null,
-    cedula:  normalizeCedula(form.cedula) || null,
-    email:   form.email ?? null,
-    phone:   form.phone ?? null,
-    status:  form.status  ?? 'activo',
-    payment: form.payment ?? 'pendiente',
-    access:  form.access ?? false,
-    fecha:   form.fecha || null,
-    notes:   form.notes ?? null,
-  }
-}
-
-async function syncRelations(participantId, courses, tags) {
-  // Borra y reinserta. Volumen chico, OK.
-  if (Array.isArray(courses)) {
-    await supabase.from('participant_courses').delete().eq('participant_id', participantId)
-    if (courses.length) {
-      const rows = courses.map(cid => ({ participant_id: participantId, course_id: cid }))
-      const { error } = await supabase.from('participant_courses').insert(rows)
-      if (error) console.error('[useParticipants] syncRelations courses', error)
-    }
-  }
-  if (Array.isArray(tags)) {
-    await supabase.from('participant_tags').delete().eq('participant_id', participantId)
-    if (tags.length) {
-      const rows = tags.map(tid => ({ participant_id: participantId, tag_id: tid }))
-      const { error } = await supabase.from('participant_tags').insert(rows)
-      if (error) console.error('[useParticipants] syncRelations tags', error)
-    }
-  }
-}
-
-async function fetchOne(id) {
-  const { data, error } = await supabase
-    .from('participants').select(PARTICIPANT_SELECT).eq('id', id).single()
-  if (error) { console.error('[useParticipants] fetchOne', error); return null }
-  return fromDb(data)
-}
-
-function loadLocal() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : structuredClone(DEFAULT_PARTICIPANTS)
-  } catch {
-    return structuredClone(DEFAULT_PARTICIPANTS)
+    message:
+      error?.message ||
+      fallbackMessage,
+    code:
+      error?.code ||
+      fallbackCode,
   }
 }
 
 function applyAutoRevoke(list) {
   return list.map(p =>
-    p.access && isExpired(p.fecha) ? { ...p, access: false } : p
+    p.access && isExpired(p.fecha)
+      ? {
+          ...p,
+          access: false,
+        }
+      : p
   )
 }
 
+// ============================================================
+// Hook
+// ============================================================
+
 export function useParticipants() {
-  const [participants, setParticipants] = useState(() =>
-    isSupabaseConfigured ? [] : applyAutoRevoke(loadLocal())
+
+  const [participants, setParticipants] =
+    useState([])
+
+  // ==========================================================
+  // Estado de carga/error inicial
+  // ==========================================================
+
+  const [loading, setLoading] =
+    useState(true)
+
+  const [error, setError] =
+    useState(null)
+
+  // ==========================================================
+  // Estados de mutaciones
+  // ==========================================================
+
+  const [addLoading, setAddLoading] =
+    useState(false)
+
+  const [addError, setAddError] =
+    useState(null)
+
+  const [updateLoading, setUpdateLoading] =
+    useState(false)
+
+  const [updateError, setUpdateError] =
+    useState(null)
+
+  const [deleteLoading, setDeleteLoading] =
+    useState(false)
+
+  const [deleteError, setDeleteError] =
+    useState(null)
+
+  const [toggleLoading, setToggleLoading] =
+    useState(false)
+
+  const [toggleError, setToggleError] =
+    useState(null)
+
+  const [renewLoading, setRenewLoading] =
+    useState(false)
+
+  const [renewError, setRenewError] =
+    useState(null)
+
+  const [importLoading, setImportLoading] =
+    useState(false)
+
+  const [importError, setImportError] =
+    useState(null)
+
+  const [
+    bulkUpdateLoading,
+    setBulkUpdateLoading,
+  ] = useState(false)
+
+  const [
+    bulkUpdateError,
+    setBulkUpdateError,
+  ] = useState(null)
+
+  // ==========================================================
+  // Carga inicial
+  // ==========================================================
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadParticipants =
+      async () => {
+
+        setLoading(true)
+        setError(null)
+
+        try {
+          const result =
+            await participantsAdapter.getAll()
+
+          if (cancelled) return
+
+          if (result?.error) {
+            console.error(
+              '[useParticipants] getAll',
+              result.error
+            )
+
+            setError(result.error)
+            setParticipants([])
+
+            return
+          }
+
+          setParticipants(
+            applyAutoRevoke(
+              result || []
+            )
+          )
+
+        } catch (error) {
+          if (cancelled) return
+
+          console.error(
+            '[useParticipants] getAll',
+            error
+          )
+
+          setError(
+            normalizeError(
+              error,
+              'No se pudieron cargar los participantes.',
+              'PARTICIPANTS_LOAD_ERROR'
+            )
+          )
+
+          setParticipants([])
+
+        } finally {
+          if (!cancelled) {
+            setLoading(false)
+          }
+        }
+      }
+
+    loadParticipants()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // ==========================================================
+  // Agregar
+  // ==========================================================
+
+  const addParticipant = useCallback(
+    async form => {
+
+      setAddLoading(true)
+      setAddError(null)
+
+      try {
+        const result =
+          await participantsAdapter.add(
+            form
+          )
+
+        if (result?.error) {
+          console.error(
+            '[useParticipants] add',
+            result.error
+          )
+
+          setAddError(result.error)
+
+          return result
+        }
+
+        setParticipants(prev => [
+          ...prev,
+          result,
+        ])
+
+        return result
+
+      } catch (error) {
+        console.error(
+          '[useParticipants] add',
+          error
+        )
+
+        const normalizedError =
+          normalizeError(
+            error,
+            'No se pudo agregar el participante.',
+            'PARTICIPANT_CREATE_ERROR'
+          )
+
+        setAddError(normalizedError)
+
+        return {
+          error: normalizedError,
+        }
+
+      } finally {
+        setAddLoading(false)
+      }
+    },
+    []
   )
 
-  // Persistencia local en modo legacy
-  useEffect(() => {
-    if (isSupabaseConfigured) return
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(participants))
-  }, [participants])
+  // ==========================================================
+  // Actualizar
+  // ==========================================================
 
-  // Fetch inicial desde Supabase
-  useEffect(() => {
-    if (!isSupabaseConfigured) return
-    supabase.from('participants').select(PARTICIPANT_SELECT).order('name')
-      .then(({ data, error }) => {
-        if (error) console.error('[useParticipants] fetch', error)
-        else setParticipants(applyAutoRevoke((data || []).map(fromDb)))
-      })
-  }, [])
+  const updateParticipant =
+    useCallback(
+      async (id, form) => {
 
-  const addParticipant = useCallback(async (form) => {
-    if (!isSupabaseConfigured) {
-      setParticipants(prev => [...prev, {
-        id:     'p' + Date.now(),
-        ...form,
-        tags:   form.tags   || [],
-        notes:  form.notes  || '',
-        fecha:  form.fecha  || todayISO(),
-      }])
-      return
-    }
-    const base = { ...baseFromForm(form), fecha: form.fecha || todayISO() }
-    const { data, error } = await supabase.from('participants')
-      .insert(base).select('id').single()
-    if (error) { console.error('[useParticipants] add', error); return }
-    await syncRelations(data.id, form.courses || [], form.tags || [])
-    const fresh = await fetchOne(data.id)
-    if (fresh) setParticipants(prev => [...prev, fresh])
-  }, [])
+        setUpdateLoading(true)
+        setUpdateError(null)
 
-  const updateParticipant = useCallback(async (id, form) => {
-    if (!isSupabaseConfigured) {
-      setParticipants(prev =>
-        prev.map(p => p.id === id ? { ...p, ...form, tags: form.tags || p.tags || [] } : p)
-      )
-      return
-    }
-    const { error } = await supabase.from('participants')
-      .update(baseFromForm(form)).eq('id', id)
-    if (error) { console.error('[useParticipants] update', error); return }
-    await syncRelations(id, form.courses, form.tags)
-    const fresh = await fetchOne(id)
-    if (fresh) setParticipants(prev => prev.map(p => p.id === id ? fresh : p))
-  }, [])
+        try {
+          const result =
+            await participantsAdapter.update(
+              id,
+              form
+            )
 
-  const deleteParticipant = useCallback(async (id) => {
-    if (!isSupabaseConfigured) {
-      setParticipants(prev => prev.filter(p => p.id !== id))
-      return
-    }
-    const { error } = await supabase.from('participants').delete().eq('id', id)
-    if (error) { console.error('[useParticipants] delete', error); return }
-    setParticipants(prev => prev.filter(p => p.id !== id))
-  }, [])
+          if (result?.error) {
+            console.error(
+              '[useParticipants] update',
+              result.error
+            )
 
-  const toggleAccess = useCallback(async (id) => {
-    if (!isSupabaseConfigured) {
-      setParticipants(prev =>
-        prev.map(p => {
-          if (p.id !== id) return p
-          return p.access
-            ? { ...p, access: false }
-            : { ...p, access: true, fecha: todayISO() }
-        })
-      )
-      return
-    }
-    const current = participants.find(p => p.id === id)
-    if (!current) return
-    const patch = current.access
-      ? { access: false }
-      : { access: true, fecha: todayISO() }
-    const { error } = await supabase.from('participants')
-      .update(patch).eq('id', id)
-    if (error) { console.error('[useParticipants] toggleAccess', error); return }
-    setParticipants(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p))
-  }, [participants])
+            setUpdateError(
+              result.error
+            )
 
-  const renewAccess = useCallback(async (id) => {
-    if (!isSupabaseConfigured) {
-      setParticipants(prev =>
-        prev.map(p => p.id === id ? { ...p, access: true, fecha: todayISO() } : p)
-      )
-      return
-    }
-    const patch = { access: true, fecha: todayISO() }
-    const { error } = await supabase.from('participants')
-      .update(patch).eq('id', id)
-    if (error) { console.error('[useParticipants] renewAccess', error); return }
-    setParticipants(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p))
-  }, [])
+            return result
+          }
 
-  /** Importa una lista. Retorna los IDs nuevos para que el caller
-   *  pueda aplicarles ajustes en lote (curso, pago, acceso). */
-  const importParticipants = useCallback(async (list) => {
-    if (!isSupabaseConfigured) {
-      const newPs = list.map((imp, i) => ({
-        id:      'p' + Date.now() + i,
-        name:    imp.name    || 'Sin nombre',
-        email:   imp.email   || null,
-        phone:   imp.phone   || '',
-        courses: imp.courses || [],
-        tags:    imp.tags    || [],
-        status:  'activo',
-        payment: 'pendiente',
-        access:  false,
-        fecha:   imp.fecha   || todayISO(),
-        notes:   imp.notes   || 'Importado desde CSV',
-      }))
-      setParticipants(prev => [...prev, ...newPs])
-      return { ids: newPs.map(p => p.id), errors: [] }
-    }
-    const added = []
-    const errors = []
-    for (const imp of list) {
-      const base = {
-        name:    imp.name || 'Sin nombre',
-        cedula:  normalizeCedula(imp.cedula) || null,
-        email:   imp.email || null,
-        phone:   imp.phone || null,
-        status:  'activo',
-        payment: 'pendiente',
-        access:  false,
-        fecha:   imp.fecha || todayISO(),
-        notes:   imp.notes || 'Importado desde CSV',
-      }
-      const { data, error } = await supabase.from('participants')
-        .insert(base).select('id').single()
-      if (error) {
-        console.error('[useParticipants] import row', imp.name, error)
-        errors.push({ name: imp.name || 'Sin nombre', message: error.message || error.code || 'error desconocido' })
-        continue
-      }
-      await syncRelations(data.id, imp.courses || [], imp.tags || [])
-      const fresh = await fetchOne(data.id)
-      if (fresh) added.push(fresh)
-    }
-    if (added.length) setParticipants(prev => [...prev, ...added])
-    return { ids: added.map(p => p.id), errors }
-  }, [])
+          setParticipants(prev =>
+            prev.map(p =>
+              p.id === id
+                ? result
+                : p
+            )
+          )
 
-  /** Aplica cambios en lote a una lista de participantes.
-   *  patch: { payment?, access?, fecha?, status? }
-   *  addCourses: array de course IDs a agregar (no reemplaza, solo agrega). */
-  const bulkUpdate = useCallback(async (ids, patch = {}, addCourses = []) => {
-    if (!ids?.length) return
-    if (!isSupabaseConfigured) {
-      setParticipants(prev => prev.map(p => {
-        if (!ids.includes(p.id)) return p
-        const newCourses = [...new Set([...(p.courses || []), ...addCourses])]
-        return { ...p, ...patch, courses: newCourses }
-      }))
-      return
-    }
-    // 1) Update plano si hay patch
-    if (Object.keys(patch).length) {
-      const { error } = await supabase.from('participants')
-        .update(patch).in('id', ids)
-      if (error) { console.error('[useParticipants] bulkUpdate patch', error); return }
-    }
-    // 2) Agregar inscripciones a cursos (idempotente: upsert con onConflict)
-    if (addCourses.length) {
-      const rows = ids.flatMap(pid => addCourses.map(cid => ({
-        participant_id: pid, course_id: cid,
-      })))
-      const { error } = await supabase
-        .from('participant_courses')
-        .upsert(rows, { onConflict: 'participant_id,course_id' })
-      if (error) console.error('[useParticipants] bulkUpdate courses', error)
-    }
-    // 3) Refrescar las filas afectadas
-    const refreshed = []
-    for (const id of ids) {
-      const f = await fetchOne(id)
-      if (f) refreshed.push(f)
-    }
-    setParticipants(prev => prev.map(p => {
-      const f = refreshed.find(r => r.id === p.id)
-      return f || p
-    }))
-  }, [])
+          return result
+
+        } catch (error) {
+          console.error(
+            '[useParticipants] update',
+            error
+          )
+
+          const normalizedError =
+            normalizeError(
+              error,
+              'No se pudo actualizar el participante.',
+              'PARTICIPANT_UPDATE_ERROR'
+            )
+
+          setUpdateError(
+            normalizedError
+          )
+
+          return {
+            error: normalizedError,
+          }
+
+        } finally {
+          setUpdateLoading(false)
+        }
+      },
+      []
+    )
+
+  // ==========================================================
+  // Eliminar
+  // ==========================================================
+
+  const deleteParticipant =
+    useCallback(
+      async id => {
+
+        setDeleteLoading(true)
+        setDeleteError(null)
+
+        try {
+          const result =
+            await participantsAdapter.remove(
+              id
+            )
+
+          if (result?.error) {
+            console.error(
+              '[useParticipants] delete',
+              result.error
+            )
+
+            setDeleteError(
+              result.error
+            )
+
+            return result
+          }
+
+          setParticipants(prev =>
+            prev.filter(
+              p => p.id !== id
+            )
+          )
+
+          return result
+
+        } catch (error) {
+          console.error(
+            '[useParticipants] delete',
+            error
+          )
+
+          const normalizedError =
+            normalizeError(
+              error,
+              'No se pudo eliminar el participante.',
+              'PARTICIPANT_DELETE_ERROR'
+            )
+
+          setDeleteError(
+            normalizedError
+          )
+
+          return {
+            error: normalizedError,
+          }
+
+        } finally {
+          setDeleteLoading(false)
+        }
+      },
+      []
+    )
+
+  // ==========================================================
+  // Toggle access
+  // ==========================================================
+
+  const toggleAccess =
+    useCallback(
+      async id => {
+
+        setToggleLoading(true)
+        setToggleError(null)
+
+        try {
+          const current =
+            participants.find(
+              p => p.id === id
+            )
+
+          if (!current) {
+            const error =
+              createHookError(
+                'El participante no existe.',
+                'PARTICIPANT_NOT_FOUND'
+              )
+
+            setToggleError(error)
+
+            return {
+              error,
+            }
+          }
+
+          const result =
+            await participantsAdapter
+              .toggleAccess(
+                id,
+                current
+              )
+
+          if (result?.error) {
+            console.error(
+              '[useParticipants] toggleAccess',
+              result.error
+            )
+
+            setToggleError(
+              result.error
+            )
+
+            return result
+          }
+
+          setParticipants(prev =>
+            prev.map(p =>
+              p.id === id
+                ? {
+                    ...p,
+                    ...result,
+                  }
+                : p
+            )
+          )
+
+          return result
+
+        } catch (error) {
+          console.error(
+            '[useParticipants] toggleAccess',
+            error
+          )
+
+          const normalizedError =
+            normalizeError(
+              error,
+              'No se pudo cambiar el acceso del participante.',
+              'PARTICIPANT_ACCESS_ERROR'
+            )
+
+          setToggleError(
+            normalizedError
+          )
+
+          return {
+            error: normalizedError,
+          }
+
+        } finally {
+          setToggleLoading(false)
+        }
+      },
+      [participants]
+    )
+
+  // ==========================================================
+  // Renovar acceso
+  // ==========================================================
+
+  const renewAccess =
+    useCallback(
+      async id => {
+
+        setRenewLoading(true)
+        setRenewError(null)
+
+        try {
+          const result =
+            await participantsAdapter
+              .renewAccess(id)
+
+          if (result?.error) {
+            console.error(
+              '[useParticipants] renewAccess',
+              result.error
+            )
+
+            setRenewError(
+              result.error
+            )
+
+            return result
+          }
+
+          setParticipants(prev =>
+            prev.map(p =>
+              p.id === id
+                ? {
+                    ...p,
+                    ...result,
+                  }
+                : p
+            )
+          )
+
+          return result
+
+        } catch (error) {
+          console.error(
+            '[useParticipants] renewAccess',
+            error
+          )
+
+          const normalizedError =
+            normalizeError(
+              error,
+              'No se pudo renovar el acceso.',
+              'PARTICIPANT_RENEW_ERROR'
+            )
+
+          setRenewError(
+            normalizedError
+          )
+
+          return {
+            error: normalizedError,
+          }
+
+        } finally {
+          setRenewLoading(false)
+        }
+      },
+      []
+    )
+
+  // ==========================================================
+  // Importar
+  //
+  // Excepción legítima del contrato:
+  //
+  // - Error antes del batch:
+  //     { error: { message, code } }
+  //
+  // - Batch ejecutado, aunque haya errores parciales:
+  //     { participants, errors }
+  // ==========================================================
+
+  const importParticipants =
+    useCallback(
+      async list => {
+
+        setImportLoading(true)
+        setImportError(null)
+
+        try {
+          const result =
+            await participantsAdapter.import(
+              list
+            )
+
+          if (result?.error) {
+            console.error(
+              '[useParticipants] import',
+              result.error
+            )
+
+            setImportError(
+              result.error
+            )
+
+            return result
+          }
+
+          const added =
+            result.participants || []
+
+          const errors =
+            result.errors || []
+
+          if (added.length) {
+            setParticipants(prev => [
+              ...prev,
+              ...added,
+            ])
+          }
+
+          return {
+            ids: added.map(
+              p => p.id
+            ),
+            errors,
+          }
+
+        } catch (error) {
+          console.error(
+            '[useParticipants] import',
+            error
+          )
+
+          const normalizedError =
+            normalizeError(
+              error,
+              'No se pudieron importar los participantes.',
+              'PARTICIPANTS_IMPORT_ERROR'
+            )
+
+          setImportError(
+            normalizedError
+          )
+
+          return {
+            ids: [],
+            errors: [
+              {
+                name: 'Importación',
+                message:
+                  normalizedError.message,
+                code:
+                  normalizedError.code,
+              },
+            ],
+          }
+
+        } finally {
+          setImportLoading(false)
+        }
+      },
+      []
+    )
+
+  // ==========================================================
+  // Actualización masiva
+  // ==========================================================
+
+  const bulkUpdate =
+    useCallback(
+      async (
+        ids,
+        patch = {},
+        addCourses = []
+      ) => {
+
+        if (!ids?.length) {
+          return []
+        }
+
+        setBulkUpdateLoading(true)
+        setBulkUpdateError(null)
+
+        try {
+          const result =
+            await participantsAdapter
+              .bulkUpdate(
+                ids,
+                patch,
+                addCourses
+              )
+
+          if (result?.error) {
+            console.error(
+              '[useParticipants] bulkUpdate',
+              result.error
+            )
+
+            setBulkUpdateError(
+              result.error
+            )
+
+            return result
+          }
+
+          setParticipants(prev =>
+            prev.map(p => {
+              const updated =
+                result.find(
+                  r => r.id === p.id
+                )
+
+              return updated || p
+            })
+          )
+
+          return result
+
+        } catch (error) {
+          console.error(
+            '[useParticipants] bulkUpdate',
+            error
+          )
+
+          const normalizedError =
+            normalizeError(
+              error,
+              'No se pudo realizar la actualización masiva.',
+              'PARTICIPANTS_BULK_UPDATE_ERROR'
+            )
+
+          setBulkUpdateError(
+            normalizedError
+          )
+
+          return {
+            error: normalizedError,
+          }
+
+        } finally {
+          setBulkUpdateLoading(false)
+        }
+      },
+      []
+    )
+
+  // ==========================================================
+  // API pública
+  // ==========================================================
 
   return {
     participants,
     setParticipants,
+
+    loading,
+    error,
+
     addParticipant,
+    addLoading,
+    addError,
+
     updateParticipant,
+    updateLoading,
+    updateError,
+
     deleteParticipant,
+    deleteLoading,
+    deleteError,
+
     toggleAccess,
+    toggleLoading,
+    toggleError,
+
     renewAccess,
+    renewLoading,
+    renewError,
+
     importParticipants,
+    importLoading,
+    importError,
+
     bulkUpdate,
+    bulkUpdateLoading,
+    bulkUpdateError,
   }
 }

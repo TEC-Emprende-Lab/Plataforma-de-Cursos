@@ -1,172 +1,537 @@
 // ============================================================
-//  useCourses.js — Hook de cursos/talleres
-//  Si Supabase está configurado: lee/escribe la tabla `courses`.
-//  Si no: fallback localStorage.
-//  API pública: { courses, addCourse, updateCourse, deleteCourse, toggleActive }.
+// useCourses.js — Hook de cursos
 //
-//  Mapeo DB ↔ app:
-//    DB.start_date  ↔  app.start
-//    DB.end_date    ↔  app.end
-//    DB.price (num) ↔  app.price (string para inputs)
+// La persistencia se delega al adapter correspondiente según
+// VITE_STORAGE_MODE.
+//
+// El hook mantiene:
+// - Estado de datos.
+// - Estados de carga.
+// - Estados de error.
+// - Actualización optimista únicamente después de confirmar
+//   que la operación en el adapter fue exitosa.
+//
+// API pública:
+//   {
+//     courses,
+//     loading,
+//     error,
+//     addCourse,
+//     addLoading,
+//     addError,
+//     updateCourse,
+//     updateLoading,
+//     updateError,
+//     deleteCourse,
+//     deleteLoading,
+//     deleteError,
+//     toggleActive,
+//     toggleLoading,
+//     toggleError
+//   }
+//
+// Contrato de operaciones:
+//   Éxito -> entidad / resultado de la operación
+//   Error -> { error: { message, code } }
 // ============================================================
 
-import { useState, useEffect, useCallback } from 'react'
-import { COURSES_STORAGE_KEY, DEFAULT_COURSES } from '../data/courses.js'
-import { supabase, isSupabaseConfigured } from '../lib/supabase.js'
+import {
+  useState,
+  useEffect,
+  useCallback,
+} from 'react'
 
-function fromDb(row) {
-  if (!row) return null
+import { storageMode } from '../lib/supabase.js'
+
+import {
+  coursesLocalAdapter,
+} from '../adapters/local/coursesAdapter.js'
+
+import {
+  coursesSupabaseAdapter,
+} from '../adapters/supabase/coursesAdapter.js'
+
+// ============================================================
+// Seleccionar adapter
+// ============================================================
+
+const coursesAdapter =
+  storageMode === 'local'
+    ? coursesLocalAdapter
+    : coursesSupabaseAdapter
+
+// ============================================================
+// Helpers
+// ============================================================
+
+function normalizeError(error, fallbackMessage, fallbackCode) {
   return {
-    id:          row.id,
-    name:        row.name,
-    short:       row.short ?? '',
-    type:        row.type,
-    platform:    row.platform ?? '',
-    start:       row.start_date ?? '',
-    end:         row.end_date ?? '',
-    capacity:    row.capacity ?? 0,
-    price:       row.price != null ? String(row.price) : '0',
-    modalidad:   row.modalidad ?? 'Asincrónico',
-    code:        row.code ?? '',
-    description: row.description ?? '',
-    active:       row.active ?? true,
-    accessDays:   row.access_days != null ? Number(row.access_days) : 45,
-    certEnabled:  row.cert_enabled ?? false,
+    message:
+      error?.message ||
+      fallbackMessage,
+
+    code:
+      error?.code ||
+      fallbackCode,
   }
 }
 
-function toDb(form) {
-  return {
-    name:        form.name ?? null,
-    short:       form.short ?? null,
-    type:        form.type ?? 'curso',
-    platform:    form.platform ?? null,
-    start_date:  form.start || null,
-    end_date:    form.end || null,
-    capacity:    form.capacity != null ? Number(form.capacity) : null,
-    price:       form.price !== '' && form.price != null ? Number(form.price) : null,
-    modalidad:   form.modalidad ?? null,
-    code:        form.code || null,
-    description: form.description ?? null,
-    active:       form.active ?? true,
-    access_days:  form.accessDays != null ? Number(form.accessDays) : 45,
-    cert_enabled: form.certEnabled ?? false,
-  }
-}
-
-function loadLocal() {
-  try {
-    const raw = localStorage.getItem(COURSES_STORAGE_KEY)
-    if (!raw) return structuredClone(DEFAULT_COURSES)
-    const parsed = JSON.parse(raw)
-    // Migración: asegurar que todos los cursos tengan accessDays
-    return parsed.map(c => ({
-      ...c,
-      accessDays: c.accessDays != null ? Number(c.accessDays) : 45,
-    }))
-  } catch {
-    return structuredClone(DEFAULT_COURSES)
-  }
-}
+// ============================================================
+// Hook
+// ============================================================
 
 export function useCourses() {
-  const [courses, setCourses] = useState(() => isSupabaseConfigured ? [] : loadLocal())
+
+  const [courses, setCourses] = useState([])
+
+  // ==========================================================
+  // Estado de carga/error inicial
+  // ==========================================================
+
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  // ==========================================================
+  // Estados de mutaciones
+  // ==========================================================
+
+  const [addLoading, setAddLoading] = useState(false)
+  const [addError, setAddError] = useState(null)
+
+  const [updateLoading, setUpdateLoading] =
+    useState(false)
+
+  const [updateError, setUpdateError] =
+    useState(null)
+
+  const [deleteLoading, setDeleteLoading] =
+    useState(false)
+
+  const [deleteError, setDeleteError] =
+    useState(null)
+
+  const [toggleLoading, setToggleLoading] =
+    useState(false)
+
+  const [toggleError, setToggleError] =
+    useState(null)
+
+  // ==========================================================
+  // Obtener cursos
+  // ==========================================================
 
   useEffect(() => {
-    if (isSupabaseConfigured) return
-    localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(courses))
-  }, [courses])
+    let cancelled = false
 
-  useEffect(() => {
-    if (!isSupabaseConfigured) return
-    supabase.from('courses').select('*').order('start_date', { ascending: true })
-      .then(({ data, error }) => {
-        if (error) console.error('[useCourses] fetch', error)
-        else setCourses((data || []).map(fromDb))
-      })
-  }, [])
+    const loadCourses = async () => {
+      setLoading(true)
+      setError(null)
 
-  const addCourse = useCallback(async (form) => {
-    if (!isSupabaseConfigured) {
-      const newCourse = {
-        id:          'c' + Date.now(),
-        name:        form.name        || 'Nuevo curso',
-        short:       form.short       || form.name?.slice(0, 20) || 'Curso',
-        type:        form.type        || 'curso',
-        platform:    form.platform    || 'TEC Digital',
-        start:       form.start       || '',
-        end:         form.end         || '',
-        capacity:    Number(form.capacity) || 30,
-        price:       form.price       || '0',
-        modalidad:   form.modalidad   || 'Asincrónico',
-        code:        form.code        || '',
-        description: form.description || '',
-        active:      true,
-        accessDays:  Number(form.accessDays) || 45,
-        certEnabled: form.certEnabled ?? false,
-      }
-      setCourses(prev => [...prev, newCourse])
-      return newCourse
-    }
-    const { data, error } = await supabase.from('courses')
-      .insert(toDb({ active: true, ...form })).select('*').single()
-    if (error) { console.error('[useCourses] add', error); return { error } }
-    const mapped = fromDb(data)
-    setCourses(prev => [...prev, mapped])
-    return mapped
-  }, [])
+      try {
+        const result =
+          await coursesAdapter.getCourses()
 
-  const updateCourse = useCallback(async (id, form) => {
-    if (!isSupabaseConfigured) {
-      setCourses(prev => prev.map(c =>
-        c.id === id ? { ...c, ...form, capacity: Number(form.capacity) || c.capacity, accessDays: Number(form.accessDays) || c.accessDays || 45 } : c
-      ))
-      return
-    }
-    const { data, error } = await supabase.from('courses')
-      .update(toDb(form)).eq('id', id).select('*').single()
-    if (error) { console.error('[useCourses] update', error); return { error } }
-    const mapped = fromDb(data)
-    setCourses(prev => prev.map(c => c.id === id ? mapped : c))
-    return mapped
-  }, [])
+        if (cancelled) return
 
-  /** Elimina el curso. En modo Supabase el FK cascade limpia
-   *  participant_courses; el setParticipants opcional permite al
-   *  caller refrescar la lista local también. */
-  const deleteCourse = useCallback(async (id, setParticipants) => {
-    if (!isSupabaseConfigured) {
-      setCourses(prev => prev.filter(c => c.id !== id))
-      if (setParticipants) {
-        setParticipants(prev =>
-          prev.map(p => ({ ...p, courses: p.courses.filter(cid => cid !== id) }))
+        // ------------------------------------------------------
+        // Error reportado por el adapter
+        // ------------------------------------------------------
+
+        if (result?.error) {
+          console.error(
+            '[useCourses] getCourses',
+            result.error
+          )
+
+          setError(result.error)
+          setCourses([])
+
+          return
+        }
+
+        // ------------------------------------------------------
+        // Éxito
+        // ------------------------------------------------------
+
+        setCourses(result || [])
+
+      } catch (error) {
+        if (cancelled) return
+
+        const normalizedError =
+          normalizeError(
+            error,
+            'No se pudieron cargar los cursos.',
+            'COURSES_LOAD_ERROR'
+          )
+
+        console.error(
+          '[useCourses] getCourses',
+          error
         )
+
+        setError(normalizedError)
+        setCourses([])
+
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
       }
-      return
     }
-    const { error } = await supabase.from('courses').delete().eq('id', id)
-    if (error) { console.error('[useCourses] delete', error); return }
-    setCourses(prev => prev.filter(c => c.id !== id))
-    if (setParticipants) {
-      setParticipants(prev =>
-        prev.map(p => ({ ...p, courses: (p.courses || []).filter(cid => cid !== id) }))
-      )
+
+    loadCourses()
+
+    return () => {
+      cancelled = true
     }
   }, [])
 
-  const toggleActive = useCallback(async (id) => {
-    if (!isSupabaseConfigured) {
-      setCourses(prev => prev.map(c => c.id === id ? { ...c, active: !c.active } : c))
-      return
-    }
-    const current = courses.find(c => c.id === id)
-    if (!current) return
-    const { data, error } = await supabase.from('courses')
-      .update({ active: !current.active }).eq('id', id).select('*').single()
-    if (error) { console.error('[useCourses] toggleActive', error); return }
-    const mapped = fromDb(data)
-    setCourses(prev => prev.map(c => c.id === id ? mapped : c))
-  }, [courses])
+  // ==========================================================
+  // Agregar curso
+  // ==========================================================
 
-  return { courses, addCourse, updateCourse, deleteCourse, toggleActive }
+  const addCourse = useCallback(
+    async form => {
+      setAddLoading(true)
+      setAddError(null)
+
+      try {
+        const result =
+          await coursesAdapter.addCourse(form)
+
+        // ------------------------------------------------------
+        // Error reportado por el adapter
+        // ------------------------------------------------------
+
+        if (result?.error) {
+          console.error(
+            '[useCourses] addCourse',
+            result.error
+          )
+
+          setAddError(result.error)
+
+          return result
+        }
+
+        // ------------------------------------------------------
+        // Éxito
+        //
+        // El estado solamente se actualiza después de confirmar
+        // que el curso fue creado correctamente.
+        // ------------------------------------------------------
+
+        setCourses(prev => [
+          ...prev,
+          result,
+        ])
+
+        return result
+
+      } catch (error) {
+        const normalizedError =
+          normalizeError(
+            error,
+            'No se pudo agregar el curso.',
+            'COURSE_CREATE_ERROR'
+          )
+
+        console.error(
+          '[useCourses] addCourse',
+          error
+        )
+
+        setAddError(normalizedError)
+
+        return {
+          error: normalizedError,
+        }
+
+      } finally {
+        setAddLoading(false)
+      }
+    },
+    []
+  )
+
+  // ==========================================================
+  // Actualizar curso
+  // ==========================================================
+
+  const updateCourse = useCallback(
+    async (id, form) => {
+      setUpdateLoading(true)
+      setUpdateError(null)
+
+      try {
+        const result =
+          await coursesAdapter.updateCourse(
+            id,
+            form
+          )
+
+        // ------------------------------------------------------
+        // Error reportado por el adapter
+        // ------------------------------------------------------
+
+        if (result?.error) {
+          console.error(
+            '[useCourses] updateCourse',
+            result.error
+          )
+
+          setUpdateError(result.error)
+
+          return result
+        }
+
+        // ------------------------------------------------------
+        // Éxito
+        // ------------------------------------------------------
+
+        setCourses(prev =>
+          prev.map(course =>
+            course.id === id
+              ? result
+              : course
+          )
+        )
+
+        return result
+
+      } catch (error) {
+        const normalizedError =
+          normalizeError(
+            error,
+            'No se pudo actualizar el curso.',
+            'COURSE_UPDATE_ERROR'
+          )
+
+        console.error(
+          '[useCourses] updateCourse',
+          error
+        )
+
+        setUpdateError(normalizedError)
+
+        return {
+          error: normalizedError,
+        }
+
+      } finally {
+        setUpdateLoading(false)
+      }
+    },
+    []
+  )
+
+  // ==========================================================
+  // Eliminar curso
+  // ==========================================================
+
+  const deleteCourse = useCallback(
+    async (id, setParticipants) => {
+      setDeleteLoading(true)
+      setDeleteError(null)
+
+      try {
+        const result =
+          await coursesAdapter.deleteCourse(id)
+
+        // ------------------------------------------------------
+        // Error reportado por el adapter
+        // ------------------------------------------------------
+
+        if (result?.error) {
+          console.error(
+            '[useCourses] deleteCourse',
+            result.error
+          )
+
+          setDeleteError(result.error)
+
+          return result
+        }
+
+        // ------------------------------------------------------
+        // Éxito
+        //
+        // Solamente se elimina del estado después de confirmar
+        // que la eliminación persistente fue exitosa.
+        // ------------------------------------------------------
+
+        setCourses(prev =>
+          prev.filter(
+            course => course.id !== id
+          )
+        )
+
+        // ------------------------------------------------------
+        // Sincronizar participantes en memoria
+        // ------------------------------------------------------
+
+        if (setParticipants) {
+          setParticipants(prev =>
+            prev.map(participant => ({
+              ...participant,
+
+              courses:
+                (participant.courses || [])
+                  .filter(
+                    courseId => courseId !== id
+                  ),
+            }))
+          )
+        }
+
+        return result
+
+      } catch (error) {
+        const normalizedError =
+          normalizeError(
+            error,
+            'No se pudo eliminar el curso.',
+            'COURSE_DELETE_ERROR'
+          )
+
+        console.error(
+          '[useCourses] deleteCourse',
+          error
+        )
+
+        setDeleteError(normalizedError)
+
+        return {
+          error: normalizedError,
+        }
+
+      } finally {
+        setDeleteLoading(false)
+      }
+    },
+    []
+  )
+
+  // ==========================================================
+  // Activar / desactivar curso
+  // ==========================================================
+
+  const toggleActive = useCallback(
+    async id => {
+      const current =
+        courses.find(
+          course => course.id === id
+        )
+
+      // --------------------------------------------------------
+      // Validar que el curso exista
+      // --------------------------------------------------------
+
+      if (!current) {
+        const result = {
+          error: {
+            message:
+              'Curso no encontrado.',
+            code:
+              'COURSE_NOT_FOUND',
+          },
+        }
+
+        setToggleError(result.error)
+
+        return result
+      }
+
+      setToggleLoading(true)
+      setToggleError(null)
+
+      try {
+        const result =
+          await coursesAdapter.toggleActive(
+            id,
+            !current.active
+          )
+
+        // ------------------------------------------------------
+        // Error reportado por el adapter
+        // ------------------------------------------------------
+
+        if (result?.error) {
+          console.error(
+            '[useCourses] toggleActive',
+            result.error
+          )
+
+          setToggleError(result.error)
+
+          return result
+        }
+
+        // ------------------------------------------------------
+        // Éxito
+        // ------------------------------------------------------
+
+        setCourses(prev =>
+          prev.map(course =>
+            course.id === id
+              ? result
+              : course
+          )
+        )
+
+        return result
+
+      } catch (error) {
+        const normalizedError =
+          normalizeError(
+            error,
+            'No se pudo cambiar el estado del curso.',
+            'COURSE_TOGGLE_ERROR'
+          )
+
+        console.error(
+          '[useCourses] toggleActive',
+          error
+        )
+
+        setToggleError(normalizedError)
+
+        return {
+          error: normalizedError,
+        }
+
+      } finally {
+        setToggleLoading(false)
+      }
+    },
+    [courses]
+  )
+
+  // ==========================================================
+  // API pública
+  // ==========================================================
+
+  return {
+    courses,
+
+    loading,
+    error,
+
+    addCourse,
+    addLoading,
+    addError,
+
+    updateCourse,
+    updateLoading,
+    updateError,
+
+    deleteCourse,
+    deleteLoading,
+    deleteError,
+
+    toggleActive,
+    toggleLoading,
+    toggleError,
+  }
 }
