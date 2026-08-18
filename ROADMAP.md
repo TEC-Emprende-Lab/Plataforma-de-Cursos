@@ -157,10 +157,10 @@ Depende de: Fases 1 y 2.
 - [x] Activar `localStorage` solo mediante una bandera explícita y únicamente en desarrollo.
 - [x] Mantener la API pública de hooks mientras se separan adaptadores Supabase y desarrollo local.
 - [x] Convertir `supabase_setup.sql` en una migración reproducible para `svg_templates`, Storage y RLS (adelantado por la frontera de seguridad de Fase 2).
-- [ ] Diseñar y aplicar una operación transaccional para relaciones de participantes.
+- [x] Diseñar y aplicar una operación transaccional para relaciones de participantes.
 - [ ] Uniformar retornos y errores de mutaciones entre adaptadores.
 - [ ] Añadir estados de carga/error que eviten mensajes de éxito falsos.
-- [ ] Verificar desde cero migraciones + seed en Supabase local antes de usar cambios remotos.
+- [x] Verificar desde cero migraciones + seed en Supabase local antes de usar cambios remotos.
 
 Validación de salida:
 

@@ -1,5 +1,8 @@
--- rls_auto_enable es SECURITY DEFINER expuesta a PUBLIC.
--- Revocar de anon/authenticated para que no sea callable vía PostgREST.
-revoke execute on function public.rls_auto_enable() from public;
-revoke execute on function public.rls_auto_enable() from anon;
-revoke execute on function public.rls_auto_enable() from authenticated;
+-- No-op: rls_auto_enable() does not exist in this project.
+-- RLS is enabled directly per-table in the init migration
+-- (courses, tags, participants, participant_courses, participant_tags).
+-- This migration was drafted against a function that was never created here.
+--------------------------
+-- revoke execute on function public.rls_auto_enable() from public;
+-- revoke execute on function public.rls_auto_enable() from anon;
+-- revoke execute on function public.rls_auto_enable() from authenticated;

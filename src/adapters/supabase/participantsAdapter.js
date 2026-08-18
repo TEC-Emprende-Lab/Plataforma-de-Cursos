@@ -39,50 +39,54 @@ function baseFromForm(form) {
   }
 }
 
-async function syncRelations(participantId, courses, tags) {
-  if (Array.isArray(courses)) {
-    const { error: deleteError } = await supabase
-      .from('participant_courses')
-      .delete()
-      .eq('participant_id', participantId)
+async function createParticipantWithRelations(form) {
+  const base = baseFromForm(form)
 
-    if (deleteError) throw deleteError
-
-    if (courses.length) {
-      const rows = courses.map(courseId => ({
-        participant_id: participantId,
-        course_id: courseId,
-      }))
-
-      const { error } = await supabase
-        .from('participant_courses')
-        .insert(rows)
-
-      if (error) throw error
+  const { data, error } = await supabase.rpc(
+    'create_participant_with_relations',
+    {
+      p_name: base.name,
+      p_cedula: base.cedula,
+      p_email: base.email,
+      p_phone: base.phone,
+      p_status: base.status,
+      p_payment: base.payment,
+      p_access: base.access,
+      p_fecha: base.fecha,
+      p_notes: base.notes,
+      p_course_ids: form.courses || [],
+      p_tag_ids: form.tags || [],
     }
-  }
+  )
 
-  if (Array.isArray(tags)) {
-    const { error: deleteError } = await supabase
-      .from('participant_tags')
-      .delete()
-      .eq('participant_id', participantId)
+  if (error) throw error
 
-    if (deleteError) throw deleteError
+  // la función SQL retorna el uuid del participante creado
+  return data
+}
 
-    if (tags.length) {
-      const rows = tags.map(tagId => ({
-        participant_id: participantId,
-        tag_id: tagId,
-      }))
+async function updateParticipantWithRelations(id, form) {
+  const base = baseFromForm(form)
 
-      const { error } = await supabase
-        .from('participant_tags')
-        .insert(rows)
-
-      if (error) throw error
+  const { error } = await supabase.rpc(
+    'update_participant_with_relations',
+    {
+      p_participant_id: id,
+      p_name: base.name,
+      p_cedula: base.cedula,
+      p_email: base.email,
+      p_phone: base.phone,
+      p_status: base.status,
+      p_payment: base.payment,
+      p_access: base.access,
+      p_fecha: base.fecha,
+      p_notes: base.notes,
+      p_course_ids: form.courses || [],
+      p_tag_ids: form.tags || [],
     }
-  }
+  )
+
+  if (error) throw error
 }
 
 async function fetchOne(id) {
@@ -111,41 +115,13 @@ export const participantsSupabaseAdapter = {
   },
 
   async add(form) {
-    const base = {
-      ...baseFromForm(form),
-      fecha: form.fecha || todayISO(),
-    }
+    const id = await createParticipantWithRelations(form)
 
-    const { data, error } = await supabase
-      .from('participants')
-      .insert(base)
-      .select('id')
-      .single()
-
-    if (error) throw error
-
-    await syncRelations(
-      data.id,
-      form.courses || [],
-      form.tags || []
-    )
-
-    return fetchOne(data.id)
+    return fetchOne(id)
   },
 
   async update(id, form) {
-    const { error } = await supabase
-      .from('participants')
-      .update(baseFromForm(form))
-      .eq('id', id)
-
-    if (error) throw error
-
-    await syncRelations(
-      id,
-      form.courses,
-      form.tags
-    )
+    await updateParticipantWithRelations(id, form)
 
     return fetchOne(id)
   },
@@ -198,9 +174,9 @@ export const participantsSupabaseAdapter = {
     const errors = []
 
     for (const imp of list) {
-      const base = {
+      const form = {
         name: imp.name || 'Sin nombre',
-        cedula: normalizeCedula(imp.cedula) || null,
+        cedula: imp.cedula || null,
         email: imp.email || null,
         phone: imp.phone || null,
         status: 'activo',
@@ -208,24 +184,17 @@ export const participantsSupabaseAdapter = {
         access: false,
         fecha: imp.fecha || todayISO(),
         notes: imp.notes || 'Importado desde CSV',
+        courses: imp.courses || [],
+        tags: imp.tags || [],
       }
 
       try {
-        const { data, error } = await supabase
-          .from('participants')
-          .insert(base)
-          .select('id')
-          .single()
+        // Usa el RPC: crea participante + relaciones (cursos/tags) en una
+        // sola transacción atómica. Si algo falla (ej. tag inválido),
+        // el participante tampoco queda creado a medias.
+        const id = await createParticipantWithRelations(form)
 
-        if (error) throw error
-
-        await syncRelations(
-          data.id,
-          imp.courses || [],
-          imp.tags || []
-        )
-
-        const fresh = await fetchOne(data.id)
+        const fresh = await fetchOne(id)
 
         if (fresh) {
           added.push(fresh)
