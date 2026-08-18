@@ -1,9 +1,20 @@
 // ============================================================
 // coursesSupabaseAdapter.js
 // Persistencia de cursos mediante Supabase.
+//
+// Mantiene el mismo contrato que el adapter local.
+//
+// Contrato:
+//   - Éxito con entidad → entidad
+//   - Éxito sin entidad → resultado explícito
+//   - Error → { error: { message, code } }
 // ============================================================
 
 import { supabase } from '../../lib/supabase.js'
+
+// ============================================================
+// Helpers
+// ============================================================
 
 function fromDb(row) {
   if (!row) return null
@@ -17,17 +28,23 @@ function fromDb(row) {
     start: row.start_date ?? '',
     end: row.end_date ?? '',
     capacity: row.capacity ?? 0,
-    price: row.price != null
-      ? String(row.price)
-      : '0',
-    modalidad: row.modalidad ?? 'Asincrónico',
+    price:
+      row.price != null
+        ? String(row.price)
+        : '0',
+    modalidad:
+      row.modalidad ?? 'Asincrónico',
     code: row.code ?? '',
-    description: row.description ?? '',
-    active: row.active ?? true,
-    accessDays: row.access_days != null
-      ? Number(row.access_days)
-      : 45,
-    certEnabled: row.cert_enabled ?? false,
+    description:
+      row.description ?? '',
+    active:
+      row.active ?? true,
+    accessDays:
+      row.access_days != null
+        ? Number(row.access_days)
+        : 45,
+    certEnabled:
+      row.cert_enabled ?? false,
   }
 }
 
@@ -44,13 +61,18 @@ function toDb(form) {
         ? Number(form.capacity)
         : null,
     price:
-      form.price !== '' && form.price != null
+      form.price !== '' &&
+      form.price != null
         ? Number(form.price)
         : null,
-    modalidad: form.modalidad ?? null,
-    code: form.code || null,
-    description: form.description ?? null,
-    active: form.active ?? true,
+    modalidad:
+      form.modalidad ?? null,
+    code:
+      form.code || null,
+    description:
+      form.description ?? null,
+    active:
+      form.active ?? true,
     access_days:
       form.accessDays != null
         ? Number(form.accessDays)
@@ -60,70 +82,155 @@ function toDb(form) {
   }
 }
 
+function fromSupabaseError(error, fallbackCode) {
+  return {
+    error: {
+      message:
+        error?.message ??
+        'Ocurrió un error en Supabase.',
+      code:
+        error?.code ??
+        fallbackCode,
+    },
+  }
+}
+
+// ============================================================
+// Adapter
+// ============================================================
+
 export const coursesSupabaseAdapter = {
 
-  async getCourses() {
-    const { data, error } = await supabase
-      .from('courses')
-      .select('*')
-      .order('start_date', {
-        ascending: true,
-      })
+  // ----------------------------------------------------------
+  // Obtener cursos
+  // ----------------------------------------------------------
 
-    if (error) throw error
+  async getCourses() {
+    const { data, error } =
+      await supabase
+        .from('courses')
+        .select('*')
+        .order('start_date', {
+          ascending: true,
+        })
+
+    if (error) {
+      return fromSupabaseError(
+        error,
+        'COURSES_LOAD_ERROR'
+      )
+    }
 
     return (data || []).map(fromDb)
   },
 
-  async addCourse(form) {
-    const { data, error } = await supabase
-      .from('courses')
-      .insert(
-        toDb({
-          active: true,
-          ...form,
-        })
-      )
-      .select('*')
-      .single()
+  // ----------------------------------------------------------
+  // Agregar curso
+  // ----------------------------------------------------------
 
-    if (error) throw error
+  async addCourse(form) {
+    const { data, error } =
+      await supabase
+        .from('courses')
+        .insert(
+          toDb({
+            active: true,
+            ...form,
+          })
+        )
+        .select('*')
+        .single()
+
+    if (error) {
+      return fromSupabaseError(
+        error,
+        'COURSE_CREATE_ERROR'
+      )
+    }
 
     return fromDb(data)
   },
+
+  // ----------------------------------------------------------
+  // Actualizar curso
+  // ----------------------------------------------------------
 
   async updateCourse(id, form) {
-    const { data, error } = await supabase
-      .from('courses')
-      .update(toDb(form))
-      .eq('id', id)
-      .select('*')
-      .single()
+    const { data, error } =
+      await supabase
+        .from('courses')
+        .update(toDb(form))
+        .eq('id', id)
+        .select('*')
+        .single()
 
-    if (error) throw error
+    if (error) {
+      return fromSupabaseError(
+        error,
+        'COURSE_UPDATE_ERROR'
+      )
+    }
 
     return fromDb(data)
   },
+
+  // ----------------------------------------------------------
+  // Eliminar curso
+  // ----------------------------------------------------------
 
   async deleteCourse(id) {
-    const { error } = await supabase
-      .from('courses')
-      .delete()
-      .eq('id', id)
+    const { data, error } =
+      await supabase
+        .from('courses')
+        .delete()
+        .eq('id', id)
+        .select('id')
 
-    if (error) throw error
+    if (error) {
+      return fromSupabaseError(
+        error,
+        'COURSE_DELETE_ERROR'
+      )
+    }
+
+    if (!data || data.length === 0) {
+      return {
+        error: {
+          message:
+            'El curso no existe.',
+          code:
+            'COURSE_NOT_FOUND',
+        },
+      }
+    }
+
+    return {
+      id,
+      deleted: true,
+    }
   },
 
-  async toggleActive(id, active) {
-    const { data, error } = await supabase
-      .from('courses')
-      .update({ active })
-      .eq('id', id)
-      .select('*')
-      .single()
+  // ----------------------------------------------------------
+  // Activar / desactivar curso
+  // ----------------------------------------------------------
 
-    if (error) throw error
+  async toggleActive(id, active) {
+    const { data, error } =
+      await supabase
+        .from('courses')
+        .update({ active })
+        .eq('id', id)
+        .select('*')
+        .single()
+
+    if (error) {
+      return fromSupabaseError(
+        error,
+        'COURSE_TOGGLE_ERROR'
+      )
+    }
 
     return fromDb(data)
   },
+
 }

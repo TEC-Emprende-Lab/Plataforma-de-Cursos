@@ -22,6 +22,10 @@
 - [Funcionalidades](#funcionalidades)
 - [Stack técnico](#stack-técnico)
 - [Arquitectura](#arquitectura)
+  - [Capas](#capas)
+  - [Patrón Adapter](#patrón-adapter)
+  - [Contratos entre Hooks y Adapters](#contratos-entre-hooks-y-adapters)
+  - [Modo de almacenamiento](#modo-de-almacenamiento)
 - [Esquema de base de datos](#esquema-de-base-de-datos)
 - [Quick start (desarrollo local)](#quick-start-desarrollo-local)
 - [Variables de entorno](#variables-de-entorno)
@@ -54,42 +58,43 @@ El TEC Emprende Lab da cursos y talleres virtuales asincrónicos con un esquema 
 ## Funcionalidades
 
 ### Participantes
-- [x] CRUD completo con cédula, nombre, correo, teléfono, estado, pago, acceso, fecha de ingreso, notas
-- [x] Relaciones N:N con cursos y etiquetas
-- [x] Barra de progreso de 45 días con colores semánticos (verde / naranja / rojo)
-- [x] Revocación automática al expirar (lógica en `src/utils/time.js`)
-- [x] Vista de perfil individual con edición de etiquetas in-line
+
+- [x] CRUD completo con cédula, nombre, correo, teléfono, estado, pago, acceso, fecha de ingreso, notas.
+- [x] Relaciones N:N con cursos y etiquetas.
+- [x] Barra de progreso de 45 días con colores semánticos.
+- [x] Revocación automática al expirar.
+- [x] Vista de perfil individual con edición de etiquetas in-line.
 
 ### Cursos y talleres
-- [x] CRUD completo (nombre, código, modalidad, plataforma, fechas, capacidad, precio en colones)
-- [x] Conteo de inscritos por curso y % de ocupación
-- [x] Toggle activo / inactivo
-- [x] Borrado con cascade que limpia inscripciones (FK)
+
+- [x] CRUD completo.
+- [x] Conteo de inscritos por curso y porcentaje de ocupación.
+- [x] Toggle activo / inactivo.
+- [x] Borrado con cascade que limpia inscripciones.
 
 ### Etiquetas
-- [x] CRUD libre con 10 paletas de color predefinidas
-- [x] Conteo de uso por etiqueta + % del total
-- [x] Borrado con cascade
+
+- [x] CRUD libre con paletas de color predefinidas.
+- [x] Conteo de uso por etiqueta.
+- [x] Borrado con cascade.
 
 ### Importación / exportación
-- [x] **Importar CSV** de matrícula con parser robusto (tolera filas malformadas)
-- [x] Match contra DB por email y cédula (fallback)
-- [x] Preview con checkboxes antes de confirmar
-- [x] **Exportar a Excel** (`.xlsx`) con todos los campos calculados
-- [x] **Exportar a CSV** universal
-- [x] **Reporte PDF** ejecutivo con secciones configurables (resumen, cursos, etiquetas, lista)
+
+- [x] **Importar CSV** de matrícula.
+- [x] Match contra DB por email y cédula.
+- [x] Preview antes de confirmar.
+- [x] **Exportar a Excel** (`.xlsx`).
+- [x] **Exportar a CSV**.
+- [x] **Reporte PDF** ejecutivo configurable.
 
 ### Autenticación y seguridad
-- [x] Login con Supabase Auth (email + password)
-- [x] Row Level Security activo en todas las tablas
-- [x] Solo usuarios autenticados pueden leer/escribir
-- [x] Cliente Supabase con retry automático en `PGRST303` (clock skew)
 
-### Filtros y navegación
-- [x] Buscador full-text por nombre, correo, teléfono
-- [x] Filtros por curso, estado de acceso, etiqueta
-- [x] Ordenamiento por fecha, nombre, días restantes
-- [x] Dashboard con stats live (total, activos, con acceso, por vencer, expirados)
+- [x] Login con Supabase Auth.
+- [x] Row Level Security activo en todas las tablas.
+- [x] Solo usuarios autenticados pueden leer/escribir.
+- [x] Cliente Supabase con retry automático para `PGRST303`.
+- [x] Separación entre persistencia local y Supabase mediante adapters.
+- [x] Producción no activa `localStorage` accidentalmente cuando Supabase no está configurado.
 
 ---
 
@@ -100,65 +105,681 @@ El TEC Emprende Lab da cursos y talleres virtuales asincrónicos con un esquema 
 | Frontend | React | 18.3 |
 | Build | Vite | 5.4 |
 | Estilos | CSS variables + Poppins | — |
-| Iconos | Tabler Icons (via CDN) | — |
+| Iconos | Tabler Icons | — |
 | Backend | Supabase Postgres | 17.6 |
 | Auth | Supabase Auth | — |
 | Hosting | Vercel | Fluid Compute |
 | PDF | jsPDF + jspdf-autotable | 4.x / 5.x |
 | Excel | ExcelJS | 4.4 |
-| MCP servers | Supabase MCP `scope=project` | — |
+| Testing frontend | Vitest | — |
+| Testing backend | pytest | — |
+| Static analysis | ESLint / Semgrep | — |
 
-**No usamos:** TypeScript en runtime, frameworks de UI tipo Material/Chakra/Tailwind, librerías de state global. Mantenido deliberadamente liviano.
+**No usamos:** TypeScript en runtime, frameworks de UI tipo Material/Chakra/Tailwind ni librerías de state global. El proyecto se mantiene deliberadamente liviano.
 
 ---
 
-## Arquitectura
+# Arquitectura
 
-```
+La aplicación utiliza una arquitectura por capas con una separación explícita entre la interfaz, la lógica de estado y la persistencia.
+
+```text
 ┌─────────────────────────────────────────────────────────────┐
-│                       Cliente (Vercel)                      │
+│                         Componentes                         │
 │                                                             │
-│   ┌─────────┐    ┌──────────────────────────────────────┐   │
-│   │ App.jsx │ ── │           AuthenticatedApp           │   │
-│   └─────────┘    │  ┌──────────┐  ┌─────────────────┐   │   │
-│       │          │  │ Sidebar  │  │ Vista activa    │   │   │
-│       │          │  └──────────┘  │ (Dashboard,     │   │   │
-│       │ useAuth  │                │  Participants,  │   │   │
-│       ▼          │                │  Courses, ...)  │   │   │
-│   ┌──────────────┴────────────────└─────────────────┘   │   │
-│   │              hooks (estado + mutaciones)            │   │
-│   │  useParticipants · useCourses · useTags · useAuth   │   │
-│   └─────────────────────────────────────────────────────┘   │
-│                              │                              │
-│                              │ supabase-js                  │
-│                              ▼                              │
+│  Dashboard · Participants · Courses · Tags · Templates      │
+│                                                             │
+│  Solo UI + eventos + props                                 │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│                           Hooks                             │
+│                                                             │
+│ useAuth · useParticipants · useCourses · useTags             │
+│ useTemplates                                                 │
+│                                                             │
+│ Estado · loading · errors · mutaciones · API pública        │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+                             │ contrato común
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│                         Adapters                            │
+│                                                             │
+│ ┌─────────────────────┐       ┌──────────────────────────┐ │
+│ │ Local adapters      │       │ Supabase adapters        │ │
+│ │                     │       │                          │ │
+│ │ localStorage        │       │ Supabase / Certificate   │ │
+│ │ fetch local         │       │ API / Storage            │ │
+│ └─────────────────────┘       └──────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
-                               │ HTTPS + JWT
-                               ▼
-                      ┌──────────────────┐
-                      │  Supabase (US)   │
-                      │  ┌────────────┐  │
-                      │  │ PostgREST  │  │
-                      │  │   + RLS    │  │
-                      │  └─────┬──────┘  │
-                      │        │         │
-                      │  ┌─────▼──────┐  │
-                      │  │ Postgres   │  │
-                      │  │ 5 tablas   │  │
-                      │  └────────────┘  │
-                      └──────────────────┘
+                             │
+                 ┌───────────┴───────────┐
+                 ▼                       ▼
+        ┌────────────────┐      ┌────────────────────┐
+        │  localStorage  │      │ Supabase / API     │
+        └────────────────┘      └────────────────────┘
 ```
 
-### Capas
+## Capas
 
-1. **Componentes** (`src/components/`) — solo UI, reciben datos y callbacks por props. Sin acceso directo a la DB.
-2. **Hooks** (`src/hooks/`) — `useParticipants`, `useCourses`, `useTags`, `useAuth`. Gestionan estado local + mutaciones contra Supabase. Exponen la misma API tanto en modo Supabase como en fallback `localStorage`.
-3. **Cliente Supabase** (`src/lib/supabase.js`) — singleton con `fetch` envuelto para retry de `PGRST303`.
-4. **Utils** (`src/utils/`) — funciones puras: `time.js` (fechas / acceso), `export.js` (Excel/CSV), `pdf.js` (reporte PDF), `email.js` (recordatorios).
+### 1. Componentes
 
-### Modo legacy (sin Supabase)
+Ubicación:
 
-Si las variables `VITE_SUPABASE_*` no están definidas, la app corre con persistencia en `localStorage` y sin guard de sesión. Útil para demos rápidas o para iterar UI sin tocar la DB.
+```text
+src/components/
+```
+
+Los componentes son responsables únicamente de la interfaz y de la interacción con el usuario.
+
+Sus responsabilidades incluyen:
+
+- Renderizar información.
+- Recibir datos mediante `props`.
+- Emitir eventos.
+- Mostrar estados de carga.
+- Mostrar errores.
+- Ejecutar callbacks proporcionados por los hooks.
+
+Los componentes **no deben acceder directamente** a:
+
+- Supabase.
+- `localStorage`.
+- `fetch` para operaciones de persistencia.
+- APIs externas.
+- SQL.
+
+Ejemplo conceptual:
+
+```js
+const {
+  courses,
+  loading,
+  error,
+  addCourse,
+  updateCourse,
+} = useCourses()
+```
+
+El componente utiliza la API del hook sin conocer dónde se almacenan los datos.
+
+---
+
+### 2. Hooks
+
+Ubicación:
+
+```text
+src/hooks/
+```
+
+Los hooks funcionan como la capa de estado y coordinación de la aplicación.
+
+Actualmente incluyen:
+
+```text
+useAuth.js
+useParticipants.js
+useCourses.js
+useTags.js
+useTemplates.js
+```
+
+Los hooks son responsables de:
+
+- Mantener el estado de la UI.
+- Exponer estados de carga.
+- Exponer errores.
+- Ejecutar mutaciones.
+- Actualizar el estado después de una operación exitosa.
+- Validar errores de alto nivel.
+- Seleccionar el adapter correspondiente al modo de almacenamiento.
+- Mantener una API pública estable para los componentes.
+
+Los hooks **no deberían contener detalles específicos de Supabase**, como:
+
+```js
+supabase
+  .from('courses')
+  .select(...)
+```
+
+ni detalles específicos de `localStorage`, como:
+
+```js
+localStorage.getItem(...)
+```
+
+Esos detalles pertenecen a los adapters.
+
+---
+
+### 3. Adapters
+
+Ubicación:
+
+```text
+src/adapters/
+├── local/
+└── supabase/
+```
+
+Los adapters encapsulan la implementación concreta de persistencia.
+
+Cada dominio tiene un adapter local y uno de Supabase.
+
+Ejemplo:
+
+```text
+src/adapters/
+├── local/
+│   ├── authAdapter.js
+│   ├── coursesAdapter.js
+│   ├── participantsAdapter.js
+│   ├── tagsAdapter.js
+│   └── templatesAdapter.js
+│
+└── supabase/
+    ├── authAdapter.js
+    ├── coursesAdapter.js
+    ├── participantsAdapter.js
+    ├── tagsAdapter.js
+    └── templatesAdapter.js
+```
+
+El hook decide qué implementación utilizar:
+
+```js
+const coursesAdapter =
+  storageMode === 'local'
+    ? coursesLocalAdapter
+    : coursesSupabaseAdapter
+```
+
+A partir de ese momento, el resto del hook utiliza únicamente el contrato del adapter.
+
+---
+
+# Patrón Adapter
+
+El proyecto utiliza el patrón **Adapter** para desacoplar la lógica de la aplicación de la tecnología de persistencia.
+
+Antes de esta separación, los hooks podían contener directamente llamadas a Supabase o lógica de `localStorage`.
+
+Actualmente:
+
+```text
+                 ┌─────────────────┐
+                 │    useCourses   │
+                 └────────┬────────┘
+                          │
+                   contrato común
+                          │
+             ┌────────────┴────────────┐
+             ▼                         ▼
+┌────────────────────────┐  ┌────────────────────────┐
+│ coursesLocalAdapter    │  │ coursesSupabaseAdapter │
+└────────────┬───────────┘  └────────────┬───────────┘
+             │                           │
+             ▼                           ▼
+       localStorage                  Supabase
+```
+
+Esto permite cambiar la persistencia sin modificar los componentes consumidores.
+
+Por ejemplo:
+
+```js
+const {
+  courses,
+  addCourse,
+  updateCourse,
+} = useCourses()
+```
+
+funciona igual independientemente de si la aplicación utiliza:
+
+```text
+VITE_STORAGE_MODE=local
+```
+
+o:
+
+```text
+VITE_STORAGE_MODE=supabase
+```
+
+---
+
+# Contratos entre Hooks y Adapters
+
+Los hooks y adapters tienen un **contrato explícito**.
+
+El hook no necesita conocer cómo el adapter realiza la operación. Solo necesita conocer:
+
+1. El nombre de la operación.
+2. Los parámetros que recibe.
+3. La estructura del resultado exitoso.
+4. La estructura de los errores.
+
+Esto permite que los adapters local y Supabase sean intercambiables.
+
+## Contrato general de resultados
+
+### Éxito con entidad
+
+Cuando una operación crea o modifica una entidad, el adapter devuelve directamente la entidad:
+
+```js
+{
+  id: '123',
+  name: 'Curso de ejemplo',
+  active: true
+}
+```
+
+Por ejemplo:
+
+```js
+const result =
+  await coursesAdapter.addCourse(form)
+```
+
+El hook puede entonces hacer:
+
+```js
+setCourses(prev => [
+  ...prev,
+  result,
+])
+```
+
+---
+
+### Éxito sin entidad
+
+Cuando una operación no tiene una entidad natural que devolver, se utiliza:
+
+```js
+{
+  id: '123',
+  deleted: true
+}
+```
+
+Esto se utiliza principalmente para eliminaciones.
+
+Ejemplo:
+
+```js
+const result =
+  await tagsAdapter.remove(id)
+```
+
+Resultado:
+
+```js
+{
+  id,
+  deleted: true,
+}
+```
+
+---
+
+### Error
+
+Todos los adapters deben normalizar sus errores al siguiente formato:
+
+```js
+{
+  error: {
+    message: 'Descripción del error',
+    code: 'ERROR_CODE'
+  }
+}
+```
+
+Ejemplo:
+
+```js
+{
+  error: {
+    message: 'La etiqueta no existe.',
+    code: 'TAG_NOT_FOUND'
+  }
+}
+```
+
+El hook puede entonces manejar cualquier adapter de la misma manera:
+
+```js
+if (result?.error) {
+  setError(result.error)
+  return result
+}
+```
+
+El componente recibe el mismo formato independientemente de si el error proviene de:
+
+- Supabase.
+- `localStorage`.
+- Una validación local.
+- Una API externa.
+
+---
+
+# Contratos por dominio
+
+## `useCourses`
+
+El hook utiliza:
+
+```js
+coursesAdapter.getCourses()
+coursesAdapter.addCourse(form)
+coursesAdapter.updateCourse(id, form)
+coursesAdapter.deleteCourse(id)
+coursesAdapter.toggleActive(id, active)
+```
+
+Los adapters deben implementar estas operaciones.
+
+### Resultados
+
+```text
+getCourses()
+    └── Course[]
+
+addCourse()
+    └── Course
+
+updateCourse()
+    └── Course
+
+deleteCourse()
+    └── { id, deleted: true }
+
+toggleActive()
+    └── Course
+
+Cualquier operación
+    └── { error: { message, code } }
+```
+
+---
+
+## `useTags`
+
+El hook utiliza:
+
+```js
+tagsAdapter.getAll()
+tagsAdapter.add(name, color)
+tagsAdapter.update(id, name, color)
+tagsAdapter.remove(id)
+```
+
+### Resultados
+
+```text
+getAll()
+    └── Tag[]
+
+add()
+    └── Tag
+
+update()
+    └── Tag
+
+remove()
+    └── { id, deleted: true }
+
+Cualquier operación
+    └── { error: { message, code } }
+```
+
+---
+
+## `useAuth`
+
+El hook utiliza:
+
+```js
+authAdapter.getSession()
+authAdapter.onAuthStateChange(callback)
+authAdapter.signIn(email, password)
+authAdapter.signOut()
+```
+
+### Resultados
+
+La sesión inicial puede devolver:
+
+```js
+{
+  user
+}
+```
+
+o:
+
+```js
+{
+  error: {
+    message,
+    code
+  }
+}
+```
+
+Las mutaciones mantienen el mismo contrato de éxito/error.
+
+---
+
+## `useTemplates`
+
+El hook utiliza adapters creados mediante factory:
+
+```js
+createTemplatesLocalAdapter()
+createTemplatesSupabaseAdapter()
+```
+
+El contrato es:
+
+```js
+adapter.list()
+adapter.loadContent(template)
+adapter.upload(file, meta)
+adapter.remove(id)
+```
+
+### Resultados
+
+```text
+list()
+    └── Template[]
+
+loadContent()
+    └── sanitized SVG string
+
+upload()
+    └── Template
+
+remove()
+    └── { id, deleted: true }
+
+Cualquier operación
+    └── { error: { message, code } }
+```
+
+Los templates integrados (`is_builtin`) son tratados como entidades de solo lectura.
+
+---
+
+# Reglas para implementar un nuevo Adapter
+
+Si se agrega un nuevo dominio, se debe crear el adapter para cada modo de almacenamiento.
+
+Ejemplo:
+
+```text
+src/adapters/local/reportsAdapter.js
+src/adapters/supabase/reportsAdapter.js
+```
+
+Ambos deben exponer exactamente las mismas operaciones públicas.
+
+Por ejemplo:
+
+```js
+reportsAdapter.getReports()
+reportsAdapter.createReport(data)
+reportsAdapter.deleteReport(id)
+```
+
+El hook no debería tener código diferente dependiendo del adapter.
+
+Evitar:
+
+```js
+if (storageMode === 'local') {
+  // lógica específica de localStorage
+} else {
+  // lógica específica de Supabase
+}
+```
+
+dentro de cada operación del hook.
+
+Preferir:
+
+```js
+const result =
+  await reportsAdapter.createReport(data)
+```
+
+y dejar que el adapter resuelva la implementación concreta.
+
+---
+
+# Reglas de errores
+
+Los adapters son responsables de transformar errores específicos de su tecnología al contrato común.
+
+Por ejemplo, un error de Supabase:
+
+```js
+{
+  code: '23505',
+  message: 'duplicate key value violates unique constraint'
+}
+```
+
+debe convertirse en un error consumible por el hook:
+
+```js
+{
+  error: {
+    message: 'El registro ya existe.',
+    code: 'DUPLICATE_RECORD'
+  }
+}
+```
+
+El objetivo es evitar que los componentes conozcan códigos internos de PostgreSQL, Supabase o APIs externas.
+
+---
+
+# Modo de almacenamiento
+
+La aplicación utiliza:
+
+```text
+VITE_STORAGE_MODE
+```
+
+para determinar el adapter activo.
+
+Valores soportados:
+
+```text
+supabase
+local
+```
+
+La selección se realiza centralmente mediante:
+
+```js
+import { storageMode } from '../lib/supabase.js'
+```
+
+## Modo Supabase
+
+```env
+VITE_STORAGE_MODE=supabase
+```
+
+Utiliza:
+
+```text
+src/adapters/supabase/
+```
+
+La persistencia principal se realiza mediante Supabase y, cuando corresponde, mediante la Certificate API.
+
+Este es el modo utilizado en producción.
+
+---
+
+## Modo local
+
+```env
+VITE_STORAGE_MODE=local
+```
+
+Utiliza:
+
+```text
+src/adapters/local/
+```
+
+La información se almacena en `localStorage` o en memoria, dependiendo del dominio.
+
+Este modo está destinado exclusivamente al desarrollo, demos y pruebas de UI.
+
+No debe utilizarse como mecanismo de persistencia de producción.
+
+---
+
+# Manejo seguro de configuración
+
+La aplicación no debe asumir que Supabase está configurado.
+
+En producción:
+
+```text
+Supabase configurado
+        │
+        ▼
+  storageMode=supabase
+        │
+        ▼
+Supabase adapters
+```
+
+Si la configuración es inválida, la aplicación debe fallar de forma segura en lugar de activar silenciosamente `localStorage`.
+
+El uso de `localStorage` debe ser explícito:
+
+```env
+VITE_STORAGE_MODE=local
+```
+
+Esto evita que una configuración incompleta de producción pueda provocar que los datos aparentemente se guarden correctamente en el navegador cuando en realidad nunca llegaron a la base de datos.
 
 ---
 
@@ -188,31 +809,37 @@ participants (
   timestamps
 )
 
-participant_courses (             ← N:N
-  participant_id, course_id, enrolled_at,
+participant_courses (
+  participant_id,
+  course_id,
+  enrolled_at,
   pk (participant_id, course_id)
 )
 
-participant_tags (                ← N:N
-  participant_id, tag_id,
+participant_tags (
+  participant_id,
+  tag_id,
   pk (participant_id, tag_id)
 )
 ```
 
-- **RLS activo en todas las tablas**. Política única: `to authenticated using (true)` — admin único confía en sus propias acciones.
-- **FK `on delete cascade`** entre las join tables y las principales: borrar un participante limpia automáticamente sus cursos y etiquetas.
-- **`updated_at` trigger** (`set_updated_at()` con `search_path = ''`) mantiene la columna sincronizada.
+- **RLS activo en todas las tablas.**
+- Las relaciones N:N utilizan claves foráneas con `ON DELETE CASCADE`.
+- `updated_at` se mantiene mediante el trigger `set_updated_at()`.
 
-Las 4 migraciones aplicadas viven versionadas en `supabase/migrations/`:
+Las migraciones versionadas viven en:
 
-```
-20260520161327_init_schema_courses_tags_participants.sql
-20260520161611_harden_set_updated_at_search_path.sql
-20260520161638_revoke_rls_auto_enable_public_execute.sql
-20260520171105_add_cedula_to_participants.sql
+```text
+supabase/migrations/
 ```
 
-El seed inicial (4 cursos, 6 tags, 8 participantes demo) está en `supabase/seed.sql`. **No re-ejecutar en prod** — rompería por UNIQUE.
+El seed inicial está en:
+
+```text
+supabase/seed.sql
+```
+
+**No reejecutar el seed en producción**, ya que contiene registros sujetos a restricciones `UNIQUE`.
 
 ---
 
@@ -223,35 +850,50 @@ El seed inicial (4 cursos, 6 tags, 8 participantes demo) está en `supabase/seed
 git clone https://github.com/tecemprendelab/Plataforma-de-Cursos.git
 cd Plataforma-de-Cursos
 
-# 2. Instalar deps
+# 2. Instalar dependencias
 npm install
 
-# 3. Variables de entorno (las keys de Supabase ya vienen llenas en .env.example)
+# 3. Configurar variables
 cp .env.example .env.local
 
-# 4. Dev server
+# 4. Ejecutar
 npm run dev
-# → http://localhost:5173
 ```
 
-**Login local**: tiene que existir un usuario en Supabase Auth. Pedile al admin que te cree uno en el [dashboard](https://supabase.com/dashboard/project/qhmynvpgmrupqzojcvua/auth/users).
+Por defecto, para trabajar contra la base de datos real:
 
-> **Tip:** si no querés pegar la app a la DB real mientras desarrollás, dejá `.env.local` con `VITE_STORAGE_MODE=local`. Arranca en modo legacy con `localStorage`.
+```env
+VITE_STORAGE_MODE=supabase
+```
+
+Para desarrollar sin modificar Supabase:
+
+```env
+VITE_STORAGE_MODE=local
+```
 
 ---
 
 ## Variables de entorno
 
-| Variable | Dónde | Para qué | Obligatoria |
-|---|---|---|---|
-| `VITE_SUPABASE_URL` | cliente | URL del proyecto Supabase | Sí (para auth) |
-| `VITE_SUPABASE_ANON_KEY` | cliente | Publishable key (no la `service_role`) | Sí (para auth) |
+| Variable | Para qué | Obligatoria |
+|---|---|---|
+| `VITE_STORAGE_MODE` | Selecciona `supabase` o `local` | Sí |
+| `VITE_SUPABASE_URL` | URL del proyecto Supabase | Sí en modo Supabase |
+| `VITE_SUPABASE_ANON_KEY` | Publishable key | Sí en modo Supabase |
 
-Las gestionamos en Vercel para los 3 entornos (Production / Preview / Development). Para sincronizarlas:
+Ejemplo:
 
-```bash
-npx vercel@latest env pull .env.local   # bajar a local
-npx vercel@latest env ls                # listar
+```env
+VITE_STORAGE_MODE=local
+```
+
+o:
+
+```env
+VITE_STORAGE_MODE=supabase
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
 ```
 
 ---
@@ -260,70 +902,67 @@ npx vercel@latest env ls                # listar
 
 ### 📥 Importar participantes desde CSV
 
-1. Generá el CSV con la herramienta del TEC (o cualquier hoja de cálculo). Columnas esperadas:
-   ```
-   Cédula, Nombre y apellidos, Facturar a nombre de, Teléfono, Correo
-   ```
-2. En la app → menú **Importar CSV**.
-3. Arrastrá el archivo o seleccionálo.
-4. La app muestra:
-   - Cuántas filas total
-   - Cuántos son **nuevos** (no están en DB)
-   - Cuántos **ya existen** (match por email o cédula)
-   - Si hubo filas con error de formato
-5. Marcá los checkboxes de los nuevos que querés importar.
-6. **Confirmar e importar**.
+1. Generar el CSV.
+2. Abrir **Importar CSV**.
+3. Seleccionar el archivo.
+4. Revisar el preview.
+5. Confirmar la importación.
 
-El parser es **tolerante a errores**: si una fila tiene una columna duplicada (caso real del CSV del TEC), detecta el tipo de cada token (email regex, cédula = solo dígitos, teléfono = 8 dígitos) en vez de confiar en la posición.
+El sistema identifica participantes existentes mediante email y cédula.
 
-Es **idempotente**: subir el mismo CSV dos veces no duplica filas.
+La operación es idempotente para evitar duplicados.
+
+---
 
 ### 📤 Generar reporte PDF
 
-1. En la app → menú **Exportar datos**.
-2. Card **Reporte PDF** a la derecha.
-3. Tildá las secciones que querés incluir (todas marcadas por default):
-   - Resumen general (6 stat cards)
-   - Desglose por curso (tabla con % ocupación)
-   - Desglose por etiqueta (tabla con % del total)
-   - Lista completa de participantes (tabla detallada paginada)
-4. **Generar PDF** → se descarga `reporte-tec-emprende-lab-YYYY-MM-DD.pdf`.
+1. Abrir **Exportar datos**.
+2. Seleccionar **Reporte PDF**.
+3. Elegir las secciones.
+4. Generar el reporte.
 
-Diseño con identidad TEC Emprende Lab: header naranja, tablas con header negro, alternancia de filas crema/blanco.
+El reporte contiene:
+
+- Resumen general.
+- Desglose por curso.
+- Desglose por etiqueta.
+- Lista de participantes.
+
+---
 
 ### 🗄️ Aplicar una nueva migración Supabase
 
-Trabajamos con migraciones versionadas en `supabase/migrations/`. Para agregar una nueva:
+Las migraciones deben versionarse:
 
-```bash
-# 1. Crear archivo con timestamp
-touch supabase/migrations/$(date -u +%Y%m%d%H%M%S)_descripcion.sql
-
-# 2. Escribir el SQL adentro
-
-# 3. Aplicarla remota (vía MCP de Supabase en Claude Code, o vía CLI)
-supabase db push   # si tenés el CLI de Supabase instalado
+```text
+supabase/migrations/
 ```
 
-Si solo querés probar el SQL antes de versionarlo: dashboard de Supabase → SQL editor → ejecutar.
+Crear una nueva:
 
-> **Importante**: después de cualquier cambio de schema, regenerar los tipos TypeScript (siguiente sección).
+```bash
+touch supabase/migrations/$(date -u +%Y%m%d%H%M%S)_descripcion.sql
+```
+
+Aplicar:
+
+```bash
+supabase db push
+```
+
+Antes de realizar cambios remotos, se recomienda validar las migraciones y el seed en un entorno local de Supabase.
+
+---
 
 ### 🧬 Regenerar tipos TypeScript
 
 ```bash
-# Vía Supabase CLI (si está instalado)
-supabase gen types typescript --project-id qhmynvpgmrupqzojcvua > src/lib/database.types.ts
-
-# O vía MCP de Supabase desde Claude Code: usar generate_typescript_types
+supabase gen types typescript \
+  --project-id qhmynvpgmrupqzojcvua \
+  > src/lib/database.types.ts
 ```
 
-Los tipos son referencia: el proyecto sigue en JS. Si querés tiparlos desde JSDoc:
-
-```js
-/** @type {import('../lib/database.types').Tables<'participants'>} */
-const row = await supabase.from('participants').select('*').single()
-```
+El proyecto continúa siendo JavaScript; estos tipos sirven como referencia y documentación del esquema.
 
 ---
 
@@ -331,91 +970,238 @@ const row = await supabase.from('participants').select('*').single()
 
 ### Auto-deploy
 
-Cada push a `main` dispara un deploy en Vercel. Verlo en tiempo real:
+Cada push a `main` dispara un deploy en Vercel.
+
 ```bash
 npx vercel@latest list
 ```
 
-### Deploy manual a producción
+### Deploy manual
 
 ```bash
 npx vercel@latest deploy --prod --yes
 ```
 
-### Variables sensibles en Vercel
-
-Si necesitás agregar o rotar envs:
+### Variables de entorno
 
 ```bash
-npx vercel@latest env ls                              # listar
-npx vercel@latest env add MI_VAR production           # agregar
-npx vercel@latest env rm MI_VAR production --yes      # quitar
+npx vercel@latest env ls
+npx vercel@latest env add MI_VAR production
+npx vercel@latest env rm MI_VAR production --yes
 ```
 
-> **Bug conocido del CLI**: `vercel env add VAR preview --value X --yes` falla en CLI v54.x. Workaround: usar la API REST directamente o el dashboard.
+Las variables de Supabase deben estar configuradas correctamente para Production.
+
+**Producción no debe depender del modo `local`.**
 
 ---
 
 ## Convenciones de código
 
-- **Idioma**: UI / commits / comentarios en **español**. Identificadores en código en **inglés**.
-- **Componentes**: PascalCase, hooks `useXxx`, utilidades camelCase.
-- **Imports**: alias `@/` apunta a `src/` (configurado en `vite.config.js`).
-- **Estilos**: CSS variables en `src/styles/global.css`. Nada de styled-components ni Tailwind.
-- **Persistencia**: Supabase si está configurado; fallback `localStorage` si no.
-- **Commits**: Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`).
-- **PRs**: features → branch + PR; fixes triviales → push directo.
+- **Idioma:** UI, commits y comentarios en español.
+- **Identificadores:** inglés.
+- **Componentes:** PascalCase.
+- **Hooks:** `useXxx`.
+- **Utilidades:** camelCase.
+- **Estilos:** CSS variables.
+- **Persistencia:** siempre mediante adapters.
+- **Componentes:** no acceden directamente a la persistencia.
+- **Hooks:** no contienen detalles específicos de Supabase o `localStorage`.
+- **Adapters:** implementan la persistencia concreta.
+- **Contratos:** los adapters de un mismo dominio deben exponer la misma API.
+- **Errores:** deben respetar `{ error: { message, code } }`.
+- **Mutaciones exitosas:** devuelven la entidad modificada o `{ id, deleted: true }`.
+- **Commits:** Conventional Commits.
+- **PRs:** features mediante branch + PR.
 
-Reglas detalladas para humanos y para Claude en [CLAUDE.md](./CLAUDE.md).
+---
+
+## Regla arquitectónica principal
+
+Toda nueva funcionalidad que requiera persistencia debe seguir el flujo:
+
+```text
+Componente
+    ↓
+Hook
+    ↓
+Adapter
+    ↓
+Persistencia
+```
+
+No se debe implementar:
+
+```text
+Componente
+    ↓
+Supabase
+```
+
+ni:
+
+```text
+Componente
+    ↓
+localStorage
+```
+
+Tampoco se debe implementar:
+
+```text
+Hook
+    ↓
+Supabase directamente
+```
+
+cuando la operación corresponda a una responsabilidad del adapter.
+
+La separación permite mantener una única API para la aplicación independientemente de la tecnología utilizada para almacenar los datos.
 
 ---
 
 ## Troubleshooting
 
+### La aplicación queda en blanco
+
+Revisar:
+
+```bash
+npm run build
+npm run lint
+```
+
+y la consola del navegador.
+
+Si `VITE_STORAGE_MODE=supabase`, verificar que existan:
+
+```env
+VITE_SUPABASE_URL
+VITE_SUPABASE_ANON_KEY
+```
+
+---
+
+### La aplicación utiliza localStorage inesperadamente
+
+Verificar:
+
+```env
+VITE_STORAGE_MODE
+```
+
+Debe ser explícitamente:
+
+```env
+VITE_STORAGE_MODE=local
+```
+
+para utilizar persistencia local.
+
+En producción debe utilizarse:
+
+```env
+VITE_STORAGE_MODE=supabase
+```
+
+---
+
 ### "Cargando…" infinito tras login
-Probablemente las envs `VITE_SUPABASE_*` no llegaron al build. Verificá:
+
+Verificar las variables:
+
 ```bash
 npx vercel@latest env ls
 ```
 
-### Error en consola: `JWT issued at future` (PGRST303)
-Es desfase de reloj entre Supabase Auth y PostgREST. El cliente reintenta automáticamente (3 veces, 400ms / 800ms). Si igual molesta, recargar la página.
+y confirmar que el entorno correspondiente tenga las variables de Supabase.
 
-### `npm run build` falla con error de módulos
-Borrá `node_modules` y `package-lock.json`, reinstalá:
-```bash
-rm -rf node_modules package-lock.json
-npm install
+---
+
+### Error `PGRST303`
+
+Es un error relacionado con desfase de reloj entre Supabase Auth y PostgREST.
+
+El cliente Supabase implementa retry automático.
+
+Si persiste:
+
+1. Revisar la hora del sistema.
+2. Recargar la aplicación.
+3. Verificar la sesión.
+4. Revisar los logs de Supabase.
+
+---
+
+### CRUD devuelve un error
+
+Los hooks esperan que los adapters respeten el contrato:
+
+```js
+{
+  error: {
+    message,
+    code
+  }
+}
 ```
 
-### "Importar CSV" salta filas
-Mirá la sección **"Filas con error"** del panel de preview. Probablemente la fila no tiene email ni cédula reconocibles. Editá el CSV y reintentá.
-
-### El PDF sale con caracteres raros
-jsPDF usa Helvetica con codificación WinAnsi. No soporta `→`, `≤`, emojis. Si agregás texto custom al reporte, usá solo caracteres latín-1.
-
-### Permisos denegados al hacer CRUD
-Verificá que estés logueado. Sin sesión válida, todas las queries fallan con 401. La sidebar muestra tu email abajo cuando hay sesión.
+Si un nuevo adapter devuelve directamente un error de Supabase o una excepción no normalizada, debe corregirse en el adapter y no en cada componente consumidor.
 
 ---
 
 ## Decisiones de alcance
 
-Cosas que **NO** está en alcance del proyecto (decisiones explícitas del cliente):
+Cosas que **NO** están en alcance actualmente:
 
-- ❌ Custom domain — la app vive en `plataforma-de-cursos-zeta.vercel.app`.
-- ❌ Backups automáticos — Supabase plan free + DDL versionado en repo.
-- ❌ Multi-admin / roles diferenciados — un único admin maneja la plataforma.
-- ❌ Sentry / monitoreo externo — los logs de Vercel + console del browser alcanzan.
-- ❌ Integración con OpenAI — se reemplazó por importación CSV.
+- ❌ Custom domain.
+- ❌ Backups automáticos.
+- ❌ Multi-admin / roles diferenciados.
+- ❌ Sentry / monitoreo externo.
+- ❌ Integración con OpenAI.
 
-Si en el futuro alguna de estas cambia, hay que revisar las decisiones de seguridad correspondientes (especialmente las RLS policies y los 15 advisors "always-true").
+Si alguna de estas decisiones cambia, deben revisarse las implicaciones arquitectónicas y de seguridad correspondientes.
+
+---
+
+## Estado de la arquitectura
+
+La arquitectura de persistencia se encuentra separada mediante el patrón Adapter:
+
+```text
+                 Aplicación
+                     │
+                     ▼
+                  Hooks
+                     │
+             contrato común
+                     │
+          ┌──────────┴──────────┐
+          ▼                     ▼
+   Local Adapters         Supabase Adapters
+          │                     │
+          ▼                     ▼
+     localStorage          Supabase/API
+```
+
+Esto permite:
+
+- Mantener los componentes independientes de la persistencia.
+- Ejecutar la aplicación en modo local para desarrollo.
+- Ejecutar producción contra Supabase.
+- Sustituir la tecnología de persistencia sin modificar la API pública de los hooks.
+- Normalizar los errores.
+- Mantener estados de carga y error consistentes.
+- Reducir el acoplamiento entre UI y backend.
+- Facilitar pruebas de los hooks y adapters de manera independiente.
 
 ---
 
 ## Contacto
 
 **TEC Emprende Lab — Instituto Tecnológico de Costa Rica**
-📧 tecemprendelab@itcr.ac.cr · 📞 2550-9270
+
+📧 tecemprendelab@itcr.ac.cr  
+📞 2550-9270
 
 <sub>Hecho con ☕ en Costa Rica.</sub>

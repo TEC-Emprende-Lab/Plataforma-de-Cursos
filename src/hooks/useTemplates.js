@@ -4,12 +4,30 @@
 // El hook mantiene la API pública de la aplicación y delega
 // las operaciones de persistencia al adapter correspondiente.
 //
+// El hook controla estados independientes de carga y error
+// para la carga inicial, subida y eliminación de plantillas.
+// Las operaciones solo actualizan el estado local cuando el
+// adapter confirma que fueron exitosas.
+//
+// Contrato:
+//   Éxito con entidad:
+//     return entity
+//
+//   Éxito sin entidad natural:
+//     return { id, deleted: true }
+//
+//   Error:
+//     return { error: { message, code } }
+//
 // API pública:
 //   {
 //     templates,
 //     loading,
 //     uploading,
+//     deleting,
 //     error,
+//     uploadError,
+//     deleteError,
 //     uploadTemplate,
 //     deleteTemplate,
 //     loadSvgContent,
@@ -24,14 +42,28 @@
 //   remove(id)
 // ============================================================
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+} from 'react'
 
 import { storageMode } from '../lib/supabase.js'
 
-import { createTemplatesSupabaseAdapter } from '../adapters/supabase/templatesAdapter.js'
-import { createTemplatesLocalAdapter } from '../adapters/local/templatesAdapter.js'
+import {
+  createTemplatesSupabaseAdapter,
+} from '../adapters/supabase/templatesAdapter.js'
+
+import {
+  createTemplatesLocalAdapter,
+} from '../adapters/local/templatesAdapter.js'
 
 const MAX_SVG_UPLOAD_BYTES = 5 * 1024 * 1024
+
+// ============================================================
+// Hook
+// ============================================================
 
 export function useTemplates() {
 
@@ -52,207 +84,429 @@ export function useTemplates() {
   // ==========================================================
 
   const [templates, setTemplates] = useState([])
+
+  // Carga inicial
   const [loading, setLoading] = useState(true)
-  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
+
+  // Upload
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] =
+    useState(null)
+
+  // Delete
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] =
+    useState(null)
 
   // ==========================================================
   // Cargar plantillas
   // ==========================================================
 
-  const loadTemplates = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+  const loadTemplates = useCallback(
+    async () => {
+      setLoading(true)
+      setError(null)
 
-    try {
-      const data = await adapter.list()
+      try {
+        const result =
+          await adapter.list()
 
-      setTemplates(data || [])
-    } catch (e) {
-      console.error('[useTemplates] load', e)
+        if (result?.error) {
+          console.error(
+            '[useTemplates] load',
+            result.error
+          )
 
-      setError(
-        e?.message ||
-        'No se pudieron cargar las plantillas'
-      )
-    } finally {
-      setLoading(false)
-    }
-  }, [adapter])
+          setError(result.error)
+          setTemplates([])
+
+          return result
+        }
+
+        setTemplates(result || [])
+
+        return result || []
+
+      } catch (error) {
+        console.error(
+          '[useTemplates] load',
+          error
+        )
+
+        const loadError = {
+          message:
+            error?.message ||
+            'No se pudieron cargar las plantillas.',
+          code:
+            error?.code ||
+            'TEMPLATES_LOAD_ERROR',
+        }
+
+        setError(loadError)
+        setTemplates([])
+
+        return {
+          error: loadError,
+        }
+
+      } finally {
+        setLoading(false)
+      }
+    },
+    [adapter]
+  )
 
   // ==========================================================
   // Carga inicial
   // ==========================================================
 
   useEffect(() => {
-    loadTemplates()
+    let cancelled = false
+
+    const load = async () => {
+      if (cancelled) return
+
+      await loadTemplates()
+    }
+
+    load()
+
+    return () => {
+      cancelled = true
+    }
   }, [loadTemplates])
 
   // ==========================================================
   // Cargar contenido SVG
   // ==========================================================
 
-  const loadSvgContent = useCallback(async (template) => {
-    if (!template) return null
+  const loadSvgContent = useCallback(
+    async template => {
 
-    try {
-      return await adapter.loadContent(template)
-    } catch (e) {
-      console.error(
-        '[useTemplates] loadSvgContent',
-        e
-      )
+      if (!template) {
+        const result = {
+          error: {
+            message:
+              'No se proporcionó una plantilla.',
+            code:
+              'TEMPLATE_REQUIRED',
+          },
+        }
 
-      setError(
-        e?.message ||
-        'No se pudo cargar el contenido SVG'
-      )
+        setError(result.error)
 
-      return null
-    }
-  }, [adapter])
+        return result
+      }
+
+      try {
+        const result =
+          await adapter.loadContent(template)
+
+        if (result?.error) {
+          console.error(
+            '[useTemplates] loadSvgContent',
+            result.error
+          )
+
+          setError(result.error)
+
+          return result
+        }
+
+        return result
+
+      } catch (error) {
+        console.error(
+          '[useTemplates] loadSvgContent',
+          error
+        )
+
+        const loadError = {
+          message:
+            error?.message ||
+            'No se pudo cargar el contenido SVG.',
+          code:
+            error?.code ||
+            'SVG_CONTENT_LOAD_ERROR',
+        }
+
+        setError(loadError)
+
+        return {
+          error: loadError,
+        }
+      }
+    },
+    [adapter]
+  )
 
   // ==========================================================
   // Subir plantilla
   // ==========================================================
 
-  const uploadTemplate = useCallback(async (
-    file,
-    meta = {}
-  ) => {
+  const uploadTemplate = useCallback(
+    async (file, meta = {}) => {
 
-    // --------------------------------------------------------
-    // Validación
-    // --------------------------------------------------------
+      // ------------------------------------------------------
+      // Limpiar error anterior
+      // ------------------------------------------------------
 
-    if (!file) {
-      setError('No se seleccionó ningún archivo')
-      return null
-    }
+      setUploadError(null)
+      setError(null)
 
-    if (!file.name.toLowerCase().endsWith('.svg')) {
-      setError('Solo se aceptan archivos .svg')
-      return null
-    }
+      // ------------------------------------------------------
+      // Validación
+      // ------------------------------------------------------
 
-    if (file.size > MAX_SVG_UPLOAD_BYTES) {
-      setError(
-        'El SVG supera el máximo permitido de 5 MB'
-      )
-      return null
-    }
+      if (!file) {
+        const result = {
+          error: {
+            message:
+              'No se seleccionó ningún archivo.',
+            code:
+              'SVG_FILE_REQUIRED',
+          },
+        }
 
-    // --------------------------------------------------------
-    // Upload
-    // --------------------------------------------------------
+        setUploadError(result.error)
 
-    setUploading(true)
-    setError(null)
-
-    try {
-      const newTemplate = await adapter.upload(
-        file,
-        meta
-      )
-
-      if (!newTemplate) {
-        throw new Error(
-          'No se pudo crear la plantilla'
-        )
+        return result
       }
 
-      setTemplates(prev => [
-        ...prev,
-        newTemplate,
-      ])
+      if (
+        !file.name
+          .toLowerCase()
+          .endsWith('.svg')
+      ) {
+        const result = {
+          error: {
+            message:
+              'Solo se aceptan archivos .svg.',
+            code:
+              'INVALID_SVG_FILE',
+          },
+        }
 
-      return newTemplate
+        setUploadError(result.error)
 
-    } catch (e) {
-      console.error(
-        '[useTemplates] upload',
-        e
-      )
+        return result
+      }
 
-      setError(
-        e?.message ||
-        'No se pudo guardar la plantilla'
-      )
+      if (file.size > MAX_SVG_UPLOAD_BYTES) {
+        const result = {
+          error: {
+            message:
+              'El SVG supera el máximo permitido de 5 MB.',
+            code:
+              'SVG_FILE_TOO_LARGE',
+          },
+        }
 
-      return null
+        setUploadError(result.error)
 
-    } finally {
-      setUploading(false)
-    }
-  }, [adapter])
+        return result
+      }
+
+      // ------------------------------------------------------
+      // Upload
+      // ------------------------------------------------------
+
+      setUploading(true)
+
+      try {
+        const result =
+          await adapter.upload(
+            file,
+            meta
+          )
+
+        if (result?.error) {
+          console.error(
+            '[useTemplates] upload',
+            result.error
+          )
+
+          setUploadError(result.error)
+
+          return result
+        }
+
+        // ----------------------------------------------------
+        // Actualizar estado solamente después de confirmar
+        // que la plantilla fue guardada correctamente.
+        // ----------------------------------------------------
+
+        setTemplates(prev => [
+          ...prev,
+          result,
+        ])
+
+        return result
+
+      } catch (error) {
+        console.error(
+          '[useTemplates] upload',
+          error
+        )
+
+        const uploadError = {
+          message:
+            error?.message ||
+            'No se pudo guardar la plantilla.',
+          code:
+            error?.code ||
+            'TEMPLATE_UPLOAD_ERROR',
+        }
+
+        setUploadError(uploadError)
+
+        return {
+          error: uploadError,
+        }
+
+      } finally {
+        setUploading(false)
+      }
+    },
+    [adapter]
+  )
 
   // ==========================================================
   // Eliminar plantilla
   // ==========================================================
 
-  const deleteTemplate = useCallback(async (id) => {
+  const deleteTemplate = useCallback(
+    async id => {
 
-    const template = templates.find(
-      t => t.id === id
-    )
+      setDeleteError(null)
+      setError(null)
 
-    // No existe
-    if (!template) {
-      return
-    }
-
-    // Las built-in no se pueden eliminar
-    if (template.is_builtin) {
-      return
-    }
-
-    setError(null)
-
-    try {
-
-      await adapter.remove(id)
-
-      setTemplates(prev =>
-        prev.filter(
-          template => template.id !== id
+      const template =
+        templates.find(
+          t => t.id === id
         )
-      )
 
-    } catch (e) {
-      console.error(
-        '[useTemplates] delete',
-        e
-      )
+      // ------------------------------------------------------
+      // No existe
+      // ------------------------------------------------------
 
-      setError(
-        e?.message ||
-        'No se pudo eliminar la plantilla'
-      )
-    }
+      if (!template) {
+        const result = {
+          error: {
+            message:
+              'La plantilla no existe.',
+            code:
+              'TEMPLATE_NOT_FOUND',
+          },
+        }
 
-  }, [adapter, templates])
+        setDeleteError(result.error)
+
+        return result
+      }
+
+      // ------------------------------------------------------
+      // Built-in
+      // ------------------------------------------------------
+
+      if (template.is_builtin) {
+        const result = {
+          error: {
+            message:
+              'Las plantillas integradas no se pueden eliminar.',
+            code:
+              'BUILTIN_TEMPLATE',
+          },
+        }
+
+        setDeleteError(result.error)
+
+        return result
+      }
+
+      // ------------------------------------------------------
+      // Delete
+      // ------------------------------------------------------
+
+      setDeleting(true)
+
+      try {
+        const result =
+          await adapter.remove(id)
+
+        if (result?.error) {
+          console.error(
+            '[useTemplates] delete',
+            result.error
+          )
+
+          setDeleteError(result.error)
+
+          return result
+        }
+
+        // ----------------------------------------------------
+        // Actualizar estado solamente después de confirmar
+        // que la plantilla fue eliminada correctamente.
+        // ----------------------------------------------------
+
+        setTemplates(prev =>
+          prev.filter(
+            template =>
+              template.id !== id
+          )
+        )
+
+        return result
+
+      } catch (error) {
+        console.error(
+          '[useTemplates] delete',
+          error
+        )
+
+        const deleteError = {
+          message:
+            error?.message ||
+            'No se pudo eliminar la plantilla.',
+          code:
+            error?.code ||
+            'TEMPLATE_DELETE_ERROR',
+        }
+
+        setDeleteError(deleteError)
+
+        return {
+          error: deleteError,
+        }
+
+      } finally {
+        setDeleting(false)
+      }
+    },
+    [adapter, templates]
+  )
 
   // ==========================================================
   // Actualizar contenido SVG en memoria
   // ==========================================================
 
-  const setSvgContent = useCallback((
-    id,
-    content
-  ) => {
-
-    setTemplates(prev =>
-      prev.map(template =>
-        template.id === id
-          ? {
-              ...template,
-              svgContent: content,
-            }
-          : template
+  const setSvgContent = useCallback(
+    (id, content) => {
+      setTemplates(prev =>
+        prev.map(template =>
+          template.id === id
+            ? {
+                ...template,
+                svgContent: content,
+              }
+            : template
+        )
       )
-    )
-
-  }, [])
+    },
+    []
+  )
 
   // ==========================================================
   // API pública
@@ -260,9 +514,15 @@ export function useTemplates() {
 
   return {
     templates,
+
     loading,
-    uploading,
     error,
+
+    uploading,
+    uploadError,
+
+    deleting,
+    deleteError,
 
     uploadTemplate,
     deleteTemplate,

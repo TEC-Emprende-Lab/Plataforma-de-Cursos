@@ -6,6 +6,10 @@ const PARTICIPANT_SELECT =
   'id,name,cedula,email,phone,status,payment,access,fecha,notes,' +
   'participant_courses(course_id),participant_tags(tag_id)'
 
+// ============================================================
+// Helpers
+// ============================================================
+
 function fromDb(row) {
   if (!row) return null
 
@@ -20,138 +24,297 @@ function fromDb(row) {
     access: row.access,
     fecha: row.fecha ?? '',
     notes: row.notes ?? '',
-    courses: (row.participant_courses || []).map(x => x.course_id),
-    tags: (row.participant_tags || []).map(x => x.tag_id),
+    courses:
+      (row.participant_courses || [])
+        .map(x => x.course_id),
+    tags:
+      (row.participant_tags || [])
+        .map(x => x.tag_id),
   }
 }
 
 function baseFromForm(form) {
   return {
     name: form.name ?? null,
-    cedula: normalizeCedula(form.cedula) || null,
+    cedula:
+      normalizeCedula(form.cedula) || null,
     email: form.email ?? null,
     phone: form.phone ?? null,
-    status: form.status ?? 'activo',
-    payment: form.payment ?? 'pendiente',
-    access: form.access ?? false,
-    fecha: form.fecha || null,
-    notes: form.notes ?? null,
+    status:
+      form.status ?? 'activo',
+    payment:
+      form.payment ?? 'pendiente',
+    access:
+      form.access ?? false,
+    fecha:
+      form.fecha || null,
+    notes:
+      form.notes ?? null,
   }
 }
+
+function fromSupabaseError(error, fallbackCode) {
+  return {
+    error: {
+      message:
+        error?.message ??
+        'Ocurrió un error en Supabase.',
+      code:
+        error?.code ??
+        fallbackCode,
+    },
+  }
+}
+
+// ============================================================
+// Operaciones con relaciones
+// ============================================================
 
 async function createParticipantWithRelations(form) {
   const base = baseFromForm(form)
 
-  const { data, error } = await supabase.rpc(
-    'create_participant_with_relations',
-    {
-      p_name: base.name,
-      p_cedula: base.cedula,
-      p_email: base.email,
-      p_phone: base.phone,
-      p_status: base.status,
-      p_payment: base.payment,
-      p_access: base.access,
-      p_fecha: base.fecha,
-      p_notes: base.notes,
-      p_course_ids: form.courses || [],
-      p_tag_ids: form.tags || [],
-    }
-  )
+  const { data, error } =
+    await supabase.rpc(
+      'create_participant_with_relations',
+      {
+        p_name: base.name,
+        p_cedula: base.cedula,
+        p_email: base.email,
+        p_phone: base.phone,
+        p_status: base.status,
+        p_payment: base.payment,
+        p_access: base.access,
+        p_fecha: base.fecha,
+        p_notes: base.notes,
+        p_course_ids:
+          form.courses || [],
+        p_tag_ids:
+          form.tags || [],
+      }
+    )
 
-  if (error) throw error
+  if (error) {
+    return fromSupabaseError(
+      error,
+      'PARTICIPANT_CREATE_ERROR'
+    )
+  }
 
-  // la función SQL retorna el uuid del participante creado
   return data
 }
 
-async function updateParticipantWithRelations(id, form) {
+async function updateParticipantWithRelations(
+  id,
+  form
+) {
   const base = baseFromForm(form)
 
-  const { error } = await supabase.rpc(
-    'update_participant_with_relations',
-    {
-      p_participant_id: id,
-      p_name: base.name,
-      p_cedula: base.cedula,
-      p_email: base.email,
-      p_phone: base.phone,
-      p_status: base.status,
-      p_payment: base.payment,
-      p_access: base.access,
-      p_fecha: base.fecha,
-      p_notes: base.notes,
-      p_course_ids: form.courses || [],
-      p_tag_ids: form.tags || [],
-    }
-  )
+  const { error } =
+    await supabase.rpc(
+      'update_participant_with_relations',
+      {
+        p_participant_id: id,
+        p_name: base.name,
+        p_cedula: base.cedula,
+        p_email: base.email,
+        p_phone: base.phone,
+        p_status: base.status,
+        p_payment: base.payment,
+        p_access: base.access,
+        p_fecha: base.fecha,
+        p_notes: base.notes,
+        p_course_ids:
+          form.courses || [],
+        p_tag_ids:
+          form.tags || [],
+      }
+    )
 
-  if (error) throw error
+  if (error) {
+    return fromSupabaseError(
+      error,
+      'PARTICIPANT_UPDATE_ERROR'
+    )
+  }
+
+  return null
 }
 
 async function fetchOne(id) {
-  const { data, error } = await supabase
-    .from('participants')
-    .select(PARTICIPANT_SELECT)
-    .eq('id', id)
-    .single()
+  const { data, error } =
+    await supabase
+      .from('participants')
+      .select(PARTICIPANT_SELECT)
+      .eq('id', id)
+      .single()
 
-  if (error) throw error
+  if (error) {
+    return fromSupabaseError(
+      error,
+      'PARTICIPANT_LOAD_ERROR'
+    )
+  }
 
   return fromDb(data)
 }
 
+// ============================================================
+// Adapter
+// ============================================================
+
 export const participantsSupabaseAdapter = {
 
-  async getAll() {
-    const { data, error } = await supabase
-      .from('participants')
-      .select(PARTICIPANT_SELECT)
-      .order('name')
+  // ----------------------------------------------------------
+  // Obtener todos
+  // ----------------------------------------------------------
 
-    if (error) throw error
+  async getAll() {
+    const { data, error } =
+      await supabase
+        .from('participants')
+        .select(PARTICIPANT_SELECT)
+        .order('name')
+
+    if (error) {
+      return fromSupabaseError(
+        error,
+        'PARTICIPANTS_LOAD_ERROR'
+      )
+    }
 
     return (data || []).map(fromDb)
   },
 
-  async add(form) {
-    const id = await createParticipantWithRelations(form)
+  // ----------------------------------------------------------
+  // Agregar
+  // ----------------------------------------------------------
 
-    return fetchOne(id)
+  async add(form) {
+    const id =
+      await createParticipantWithRelations(
+        form
+      )
+
+    if (id?.error) {
+      return id
+    }
+
+    const participant =
+      await fetchOne(id)
+
+    if (participant?.error) {
+      return participant
+    }
+
+    return participant
   },
+
+  // ----------------------------------------------------------
+  // Actualizar
+  // ----------------------------------------------------------
 
   async update(id, form) {
-    await updateParticipantWithRelations(id, form)
+    const updateResult =
+      await updateParticipantWithRelations(
+        id,
+        form
+      )
 
-    return fetchOne(id)
+    if (updateResult?.error) {
+      return updateResult
+    }
+
+    const participant =
+      await fetchOne(id)
+
+    if (participant?.error) {
+      return participant
+    }
+
+    return participant
   },
+
+  // ----------------------------------------------------------
+  // Eliminar
+  // ----------------------------------------------------------
 
   async remove(id) {
-    const { error } = await supabase
-      .from('participants')
-      .delete()
-      .eq('id', id)
+    const { data, error } =
+      await supabase
+        .from('participants')
+        .delete()
+        .eq('id', id)
+        .select('id')
 
-    if (error) throw error
+    if (error) {
+      return fromSupabaseError(
+        error,
+        'PARTICIPANT_DELETE_ERROR'
+      )
+    }
+
+    if (!data || data.length === 0) {
+      return {
+        error: {
+          message:
+            'El participante no existe.',
+          code:
+            'PARTICIPANT_NOT_FOUND',
+        },
+      }
+    }
+
+    return {
+      id,
+      deleted: true,
+    }
   },
+
+  // ----------------------------------------------------------
+  // Toggle access
+  // ----------------------------------------------------------
 
   async toggleAccess(id, current) {
     const patch = current.access
-      ? { access: false }
+      ? {
+          access: false,
+        }
       : {
           access: true,
           fecha: todayISO(),
         }
 
-    const { error } = await supabase
-      .from('participants')
-      .update(patch)
-      .eq('id', id)
+    const { data, error } =
+      await supabase
+        .from('participants')
+        .update(patch)
+        .eq('id', id)
+        .select('id')
 
-    if (error) throw error
+    if (error) {
+      return fromSupabaseError(
+        error,
+        'PARTICIPANT_ACCESS_ERROR'
+      )
+    }
+
+    if (!data || data.length === 0) {
+      return {
+        error: {
+          message:
+            'El participante no existe.',
+          code:
+            'PARTICIPANT_NOT_FOUND',
+        },
+      }
+    }
 
     return patch
   },
+
+  // ----------------------------------------------------------
+  // Renovar acceso
+  // ----------------------------------------------------------
 
   async renewAccess(id) {
     const patch = {
@@ -159,15 +322,45 @@ export const participantsSupabaseAdapter = {
       fecha: todayISO(),
     }
 
-    const { error } = await supabase
-      .from('participants')
-      .update(patch)
-      .eq('id', id)
+    const { data, error } =
+      await supabase
+        .from('participants')
+        .update(patch)
+        .eq('id', id)
+        .select('id')
 
-    if (error) throw error
+    if (error) {
+      return fromSupabaseError(
+        error,
+        'PARTICIPANT_RENEW_ERROR'
+      )
+    }
+
+    if (!data || data.length === 0) {
+      return {
+        error: {
+          message:
+            'El participante no existe.',
+          code:
+            'PARTICIPANT_NOT_FOUND',
+        },
+      }
+    }
 
     return patch
   },
+
+  // ----------------------------------------------------------
+  // Importar
+  //
+  // Excepción legítima:
+  //
+  // Si falla antes del batch:
+  //   { error: { message, code } }
+  //
+  // Si el batch corre y algunos elementos fallan:
+  //   { participants, errors }
+  // ----------------------------------------------------------
 
   async import(list) {
     const added = []
@@ -175,45 +368,79 @@ export const participantsSupabaseAdapter = {
 
     for (const imp of list) {
       const form = {
-        name: imp.name || 'Sin nombre',
-        cedula: imp.cedula || null,
-        email: imp.email || null,
-        phone: imp.phone || null,
-        status: 'activo',
-        payment: 'pendiente',
-        access: false,
-        fecha: imp.fecha || todayISO(),
-        notes: imp.notes || 'Importado desde CSV',
-        courses: imp.courses || [],
-        tags: imp.tags || [],
+        name:
+          imp.name || 'Sin nombre',
+        cedula:
+          imp.cedula || null,
+        email:
+          imp.email || null,
+        phone:
+          imp.phone || null,
+        status:
+          'activo',
+        payment:
+          'pendiente',
+        access:
+          false,
+        fecha:
+          imp.fecha || todayISO(),
+        notes:
+          imp.notes ||
+          'Importado desde CSV',
+        courses:
+          imp.courses || [],
+        tags:
+          imp.tags || [],
       }
 
-      try {
-        // Usa el RPC: crea participante + relaciones (cursos/tags) en una
-        // sola transacción atómica. Si algo falla (ej. tag inválido),
-        // el participante tampoco queda creado a medias.
-        const id = await createParticipantWithRelations(form)
+      const id =
+        await createParticipantWithRelations(
+          form
+        )
 
-        const fresh = await fetchOne(id)
-
-        if (fresh) {
-          added.push(fresh)
-        }
-
-      } catch (error) {
+      if (id?.error) {
         console.error(
           '[participantsAdapter] import',
           imp.name,
-          error
+          id.error
         )
 
         errors.push({
-          name: imp.name || 'Sin nombre',
+          name:
+            imp.name || 'Sin nombre',
           message:
-            error.message ||
-            error.code ||
-            'error desconocido',
+            id.error.message,
+          code:
+            id.error.code,
         })
+
+        continue
+      }
+
+      const fresh =
+        await fetchOne(id)
+
+      if (fresh?.error) {
+        console.error(
+          '[participantsAdapter] import',
+          imp.name,
+          fresh.error
+        )
+
+        errors.push({
+          name:
+            imp.name || 'Sin nombre',
+          message:
+            fresh.error.message,
+          code:
+            fresh.error.code,
+        })
+
+        continue
+      }
+
+      if (fresh) {
+        added.push(fresh)
       }
     }
 
@@ -223,19 +450,41 @@ export const participantsSupabaseAdapter = {
     }
   },
 
-  async bulkUpdate(ids, patch = {}, addCourses = []) {
+  // ----------------------------------------------------------
+  // Actualización masiva
+  // ----------------------------------------------------------
+
+  async bulkUpdate(
+    ids,
+    patch = {},
+    addCourses = []
+  ) {
     if (!ids?.length) {
       return []
     }
 
-    if (Object.keys(patch).length) {
-      const { error } = await supabase
-        .from('participants')
-        .update(patch)
-        .in('id', ids)
+    // --------------------------------------------------------
+    // Actualizar campos principales
+    // --------------------------------------------------------
 
-      if (error) throw error
+    if (Object.keys(patch).length) {
+      const { error } =
+        await supabase
+          .from('participants')
+          .update(patch)
+          .in('id', ids)
+
+      if (error) {
+        return fromSupabaseError(
+          error,
+          'PARTICIPANTS_BULK_UPDATE_ERROR'
+        )
+      }
     }
+
+    // --------------------------------------------------------
+    // Agregar cursos
+    // --------------------------------------------------------
 
     if (addCourses.length) {
       const rows = ids.flatMap(pid =>
@@ -245,19 +494,35 @@ export const participantsSupabaseAdapter = {
         }))
       )
 
-      const { error } = await supabase
-        .from('participant_courses')
-        .upsert(rows, {
-          onConflict: 'participant_id,course_id',
-        })
+      const { error } =
+        await supabase
+          .from('participant_courses')
+          .upsert(rows, {
+            onConflict:
+              'participant_id,course_id',
+          })
 
-      if (error) throw error
+      if (error) {
+        return fromSupabaseError(
+          error,
+          'PARTICIPANTS_BULK_COURSES_ERROR'
+        )
+      }
     }
+
+    // --------------------------------------------------------
+    // Obtener participantes actualizados
+    // --------------------------------------------------------
 
     const refreshed = []
 
     for (const id of ids) {
-      const participant = await fetchOne(id)
+      const participant =
+        await fetchOne(id)
+
+      if (participant?.error) {
+        return participant
+      }
 
       if (participant) {
         refreshed.push(participant)
