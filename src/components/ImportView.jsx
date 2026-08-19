@@ -226,9 +226,12 @@ export default function ImportView({ participants, courses = [], onImport, onBul
       return
     }
     setBulkApplying(true)
-    await onBulkUpdate?.(importedIds, patch, addCourses)
-    setBulkApplying(false)
-    reset()
+    try {
+      const result = await onBulkUpdate?.(importedIds, patch, addCourses)
+      if (!result?.error) reset()
+    } finally {
+      setBulkApplying(false)
+    }
   }
 
   const skipBulk = () => reset()
@@ -256,6 +259,7 @@ export default function ImportView({ participants, courses = [], onImport, onBul
       fecha: rowFechas[i] || todayISO(),
     }))
     const ids = await onImport(toImport)
+    if (ids?.error) return
     setImportedIds(Array.isArray(ids) ? ids : [])
     setDone(true)
     setMatchRes(null)

@@ -39,10 +39,8 @@ export default function CoursesView({ courses, participants, setView, onAdd, onU
   const openNew  = ()  => { setEditTarget(null); setModal(true) }
   const openEdit = (c) => { setEditTarget(c);    setModal(true) }
 
-  const handleSave = form => {
+  const handleSave = form =>
     editTarget ? onUpdate(editTarget.id, form) : onAdd(form)
-    setModal(false)
-  }
 
   const enrolled = (cid) => participants.filter(p => p.courses.includes(cid)).length
 

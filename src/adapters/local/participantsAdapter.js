@@ -399,6 +399,22 @@ export const participantsLocalAdapter = {
     patch = {},
     addCourses = []
   ) {
+    if (!ids?.length) {
+      return []
+    }
+
+    const unsupportedFields =
+      Object.keys(patch).filter(
+        key => !['payment', 'access', 'fecha'].includes(key)
+      )
+
+    if (unsupportedFields.length) {
+      return createError(
+        'La actualización incluye campos no permitidos.',
+        'PARTICIPANTS_BULK_INVALID_PATCH'
+      )
+    }
+
     const participants = loadLocal()
 
     if (participants?.error) {

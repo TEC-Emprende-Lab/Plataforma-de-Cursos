@@ -265,7 +265,7 @@ export const coursesLocalAdapter = {
   // Activar / desactivar curso
   // ----------------------------------------------------------
 
-  async toggleActive(id) {
+  async toggleActive(id, active) {
     const courses = loadCourses()
 
     if (courses?.error) {
@@ -288,7 +288,7 @@ export const coursesLocalAdapter = {
     const updatedCourse = {
       ...currentCourse,
       active:
-        !currentCourse.active,
+        active ?? !currentCourse.active,
     }
 
     const updated =

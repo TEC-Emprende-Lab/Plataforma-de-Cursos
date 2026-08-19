@@ -78,24 +78,54 @@ function AuthenticatedApp({ user, onSignOut, theme, toggleTheme }) {
   const { courses, addCourse, updateCourse, deleteCourse, toggleActive } = useCourses()
 
   // ── Actualizar etiquetas de participante ──────────────────
-  const updateParticipantTags = useCallback((pid, newTags) => {
+  const updateParticipantTags = useCallback(async (pid, newTags) => {
     const p = participants.find(x => x.id === pid)
-    if (p) updateParticipant(pid, { ...p, tags: newTags })
-    toast('Etiquetas actualizadas ✓')
-  }, [participants, updateParticipant])
+    if (!p) return { error: { message: 'El participante no existe.', code: 'PARTICIPANT_NOT_FOUND' } }
+    const result = await updateParticipant(pid, { ...p, tags: newTags })
+    if (result?.error) toast('No se pudieron actualizar las etiquetas: ' + (result.error.message || result.error.code || 'error desconocido'))
+    else toast('Etiquetas actualizadas ✓')
+    return result
+  }, [participants, updateParticipant, toast])
 
   // ── Wrappers participantes ────────────────────────────────
-  const handleAdd    = f      => { addParticipant(f);             toast('Participante agregado ✓')    }
-  const handleUpdate = (id,f) => { updateParticipant(id,f);       toast('Participante actualizado ✓') }
-  const handleDelete = id     => { deleteParticipant(id);         toast('Participante eliminado')     }
-  const handleToggle = id     => {
-    const p = participants.find(x => x.id === id)
-    toggleAccess(id)
-    toast(p?.access ? 'Acceso revocado' : 'Acceso activado ✓')
+  const handleAdd = async f => {
+    const result = await addParticipant(f)
+    if (result?.error) toast('No se pudo agregar: ' + (result.error.message || result.error.code || 'error desconocido'))
+    else toast('Participante agregado ✓')
+    return result
   }
-  const handleRenew  = id     => { renewAccess(id);               toast('Acceso renovado ✓')         }
+  const handleUpdate = async (id, f) => {
+    const result = await updateParticipant(id, f)
+    if (result?.error) toast('No se pudo actualizar: ' + (result.error.message || result.error.code || 'error desconocido'))
+    else toast('Participante actualizado ✓')
+    return result
+  }
+  const handleDelete = async id => {
+    const result = await deleteParticipant(id)
+    if (result?.error) toast('No se pudo eliminar: ' + (result.error.message || result.error.code || 'error desconocido'))
+    else toast('Participante eliminado')
+    return result
+  }
+  const handleToggle = async id => {
+    const p = participants.find(x => x.id === id)
+    const result = await toggleAccess(id)
+    if (result?.error) toast('No se pudo cambiar el acceso: ' + (result.error.message || result.error.code || 'error desconocido'))
+    else toast(p?.access ? 'Acceso revocado' : 'Acceso activado ✓')
+    return result
+  }
+  const handleRenew = async id => {
+    const result = await renewAccess(id)
+    if (result?.error) toast('No se pudo renovar el acceso: ' + (result.error.message || result.error.code || 'error desconocido'))
+    else toast('Acceso renovado ✓')
+    return result
+  }
   const handleImport = async list => {
-    const { ids, errors } = await importParticipants(list)
+    const result = await importParticipants(list)
+    if (result?.error) {
+      toast('No se pudo importar: ' + (result.error.message || result.error.code || 'error desconocido'))
+      return result
+    }
+    const { ids = [], errors = [] } = result
     if (errors?.length) {
       const first = errors[0]
       toast(`${ids.length} importado${ids.length!==1?'s':''}, ${errors.length} con error (${first.name}: ${first.message})`)
@@ -105,8 +135,13 @@ function AuthenticatedApp({ user, onSignOut, theme, toggleTheme }) {
     return ids
   }
   const handleBulkUpdate = async (ids, patch, addCourses) => {
-    await bulkUpdate(ids, patch, addCourses)
+    const result = await bulkUpdate(ids, patch, addCourses)
+    if (result?.error) {
+      toast('No se pudo actualizar: ' + (result.error.message || result.error.code || 'error desconocido'))
+      return result
+    }
     toast(`${ids.length} participante${ids.length!==1?'s':''} actualizado${ids.length!==1?'s':''} ✓`)
+    return result
   }
 
   // ── Wrappers cursos ───────────────────────────────────────
@@ -115,29 +150,46 @@ function AuthenticatedApp({ user, onSignOut, theme, toggleTheme }) {
     if (result?.error) toast('No se pudo crear: ' + (result.error.message || result.error.code || 'error desconocido'))
     else if (result === null) toast('Error al crear el programa — revisá la consola')
     else toast('Programa creado ✓')
+    return result
   }
   const handleUpdateCourse = async (id, f) => {
     const result = await updateCourse(id, f)
     if (result?.error) toast('No se pudo actualizar: ' + (result.error.message || result.error.code || 'error desconocido'))
     else if (result === null) toast('Error al actualizar — revisá la consola')
     else toast('Programa actualizado ✓')
+    return result
   }
-  const handleDeleteCourse = id      => {
-    const c = courses.find(x => x.id === id)
-    if (!confirm(`¿Eliminar "${c?.name}"? Se quitará de todos los participantes.`)) return
-    deleteCourse(id, setParticipants)
-    toast('Programa eliminado')
+  const handleDeleteCourse = async id => {
+    const result = await deleteCourse(id, setParticipants)
+    if (result?.error) toast('No se pudo eliminar: ' + (result.error.message || result.error.code || 'error desconocido'))
+    else toast('Programa eliminado')
+    return result
   }
-  const handleToggleActive = id      => { toggleActive(id);             toast('Estado actualizado ✓')       }
+  const handleToggleActive = async id => {
+    const result = await toggleActive(id)
+    if (result?.error) toast('No se pudo cambiar el estado: ' + (result.error.message || result.error.code || 'error desconocido'))
+    else toast('Estado actualizado ✓')
+    return result
+  }
 
   // ── Wrappers etiquetas ────────────────────────────────────
-  const handleAddTag    = (n,c) => { addTag(n,c);          toast(`Etiqueta "${n}" creada ✓`)    }
-  const handleEditTag   = (id,n,c) => { editTag(id,n,c);   toast('Etiqueta actualizada ✓')      }
-  const handleDeleteTag = id    => {
-    const t = tags.find(x => x.id === id)
-    if (!confirm(`¿Eliminar la etiqueta "${t?.name}"?`)) return
-    deleteTag(id, setParticipants)
-    toast('Etiqueta eliminada')
+  const handleAddTag = async (n, c) => {
+    const result = await addTag(n, c)
+    if (result?.error) toast('No se pudo crear la etiqueta: ' + (result.error.message || result.error.code || 'error desconocido'))
+    else toast(`Etiqueta "${n}" creada ✓`)
+    return result
+  }
+  const handleEditTag = async (id, n, c) => {
+    const result = await editTag(id, n, c)
+    if (result?.error) toast('No se pudo actualizar la etiqueta: ' + (result.error.message || result.error.code || 'error desconocido'))
+    else toast('Etiqueta actualizada ✓')
+    return result
+  }
+  const handleDeleteTag = async id => {
+    const result = await deleteTag(id, setParticipants)
+    if (result?.error) toast('No se pudo eliminar la etiqueta: ' + (result.error.message || result.error.code || 'error desconocido'))
+    else toast('Etiqueta eliminada')
+    return result
   }
 
   // ── Router ────────────────────────────────────────────────

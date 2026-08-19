@@ -27,6 +27,7 @@ function genCode(name, type) {
 export default function CourseModal({ course, onSave, onClose }) {
   const [form, setForm]     = useState(course ? { ...course, capacity: String(course.capacity), accessDays: String(course.accessDays ?? 45), certEnabled: course.certEnabled ?? false } : { ...EMPTY })
   const [errors, setErrors] = useState({})
+  const [saving, setSaving] = useState(false)
 
   const f = (key, val) => setForm(prev => ({ ...prev, [key]: val }))
 
@@ -40,16 +41,21 @@ export default function CourseModal({ course, onSave, onClose }) {
     return Object.keys(e).length === 0
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return
-    onSave({
-      ...form,
-      short:    form.short.trim() || form.name.slice(0, 24),
-      code:     form.code.trim()  || genCode(form.name, form.type),
-      capacity: Number(form.capacity) || 30,
-      accessDays: Number(form.accessDays) || 45,
-    })
-    onClose()
+    setSaving(true)
+    try {
+      const result = await onSave({
+        ...form,
+        short:    form.short.trim() || form.name.slice(0, 24),
+        code:     form.code.trim()  || genCode(form.name, form.type),
+        capacity: Number(form.capacity) || 30,
+        accessDays: Number(form.accessDays) || 45,
+      })
+      if (!result?.error) onClose()
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -213,8 +219,8 @@ export default function CourseModal({ course, onSave, onClose }) {
 
       <div className="modal-foot">
         <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
-        <button className="btn btn-orange" onClick={handleSave}>
-          <i className="ti ti-check"/> Guardar {form.type}
+        <button className="btn btn-orange" onClick={handleSave} disabled={saving}>
+          <i className={`ti ti-${saving ? 'loader-2' : 'check'}`}/> {saving ? 'Guardando…' : `Guardar ${form.type}`}
         </button>
       </div>
     </Modal>

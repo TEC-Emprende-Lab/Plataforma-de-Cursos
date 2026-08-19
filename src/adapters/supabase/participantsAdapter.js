@@ -463,51 +463,43 @@ export const participantsSupabaseAdapter = {
       return []
     }
 
-    // --------------------------------------------------------
-    // Actualizar campos principales
-    // --------------------------------------------------------
+    const unsupportedFields =
+      Object.keys(patch).filter(
+        key => !['payment', 'access', 'fecha'].includes(key)
+      )
 
-    if (Object.keys(patch).length) {
-      const { error } =
-        await supabase
-          .from('participants')
-          .update(patch)
-          .in('id', ids)
-
-      if (error) {
-        return fromSupabaseError(
-          error,
-          'PARTICIPANTS_BULK_UPDATE_ERROR'
-        )
+    if (unsupportedFields.length) {
+      return {
+        error: {
+          message:
+            'La actualización incluye campos no permitidos.',
+          code:
+            'PARTICIPANTS_BULK_INVALID_PATCH',
+        },
       }
     }
 
-    // --------------------------------------------------------
-    // Agregar cursos
-    // --------------------------------------------------------
-
-    if (addCourses.length) {
-      const rows = ids.flatMap(pid =>
-        addCourses.map(cid => ({
-          participant_id: pid,
-          course_id: cid,
-        }))
+    const { error } =
+      await supabase.rpc(
+        'bulk_update_participants_with_courses',
+        {
+          p_participant_ids: ids,
+          p_payment:
+            patch.payment ?? null,
+          p_access:
+            patch.access ?? null,
+          p_fecha:
+            patch.fecha ?? null,
+          p_course_ids:
+            addCourses,
+        }
       )
 
-      const { error } =
-        await supabase
-          .from('participant_courses')
-          .upsert(rows, {
-            onConflict:
-              'participant_id,course_id',
-          })
-
-      if (error) {
-        return fromSupabaseError(
-          error,
-          'PARTICIPANTS_BULK_COURSES_ERROR'
-        )
-      }
+    if (error) {
+      return fromSupabaseError(
+        error,
+        'PARTICIPANTS_BULK_UPDATE_ERROR'
+      )
     }
 
     // --------------------------------------------------------

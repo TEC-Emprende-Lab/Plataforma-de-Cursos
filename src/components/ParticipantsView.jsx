@@ -159,10 +159,8 @@ export default function ParticipantsView({
 
   const openNew  = ()  => { setEditTarget(null); setModalOpen(true) }
   const openEdit = (p) => { setEditTarget(p);    setModalOpen(true) }
-  const handleSave = form => {
+  const handleSave = form =>
     editTarget ? onUpdate(editTarget.id, form) : onAdd(form)
-    setModalOpen(false)
-  }
 
   const shortName = cid => courses.find(c => c.id === cid)?.short || cid
 
