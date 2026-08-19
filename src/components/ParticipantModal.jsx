@@ -26,6 +26,7 @@ function resolveAccessDays(selectedCourseIds, courses) {
 export default function ParticipantModal({ participant, courses, tags, onSave, onClose }) {
   const [form, setForm]     = useState(participant ? { ...participant } : { ...EMPTY_FORM })
   const [errors, setErrors] = useState({})
+  const [saving, setSaving] = useState(false)
 
   const f = (key, value) => setForm(prev => ({ ...prev, [key]: value }))
 
@@ -48,10 +49,15 @@ export default function ParticipantModal({ participant, courses, tags, onSave, o
     return Object.keys(e).length === 0
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return
-    onSave(form)
-    onClose()
+    setSaving(true)
+    try {
+      const result = await onSave(form)
+      if (!result?.error) onClose()
+    } finally {
+      setSaving(false)
+    }
   }
 
   // Solo mostrar cursos activos
@@ -171,8 +177,8 @@ export default function ParticipantModal({ participant, courses, tags, onSave, o
 
       <div className="modal-foot">
         <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
-        <button className="btn btn-orange" onClick={handleSave}>
-          <i className="ti ti-check"/> Guardar
+        <button className="btn btn-orange" onClick={handleSave} disabled={saving}>
+          <i className={`ti ti-${saving ? 'loader-2' : 'check'}`}/> {saving ? 'Guardando…' : 'Guardar'}
         </button>
       </div>
     </Modal>

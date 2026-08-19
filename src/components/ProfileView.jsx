@@ -17,6 +17,7 @@ export default function ProfileView({ id, participants, courses, tags, onToggleA
 
   const [editingTags, setEditingTags] = useState(false)
   const [selectedTags, setSelectedTags] = useState(p?.tags || [])
+  const [savingTags, setSavingTags] = useState(false)
 
   if (!p) return <div>Participante no encontrado</div>
 
@@ -26,13 +27,22 @@ export default function ProfileView({ id, participants, courses, tags, onToggleA
   const examRemind  = needsExamReminder(p.fecha, days)
   const ptags       = tags.filter(t => (p.tags||[]).includes(t.id))
 
-  const toggleTag = tid => setSelectedTags(prev =>
-    prev.includes(tid) ? prev.filter(x => x !== tid) : [...prev, tid]
-  )
+  const toggleTag = tid => {
+    if (savingTags) return
+    setSelectedTags(prev =>
+      prev.includes(tid) ? prev.filter(x => x !== tid) : [...prev, tid]
+    )
+  }
 
-  const saveTags = () => {
-    onUpdateTags(p.id, selectedTags)
-    setEditingTags(false)
+  const saveTags = async () => {
+    if (savingTags) return
+    setSavingTags(true)
+    try {
+      const result = await onUpdateTags(p.id, selectedTags)
+      if (!result?.error) setEditingTags(false)
+    } finally {
+      setSavingTags(false)
+    }
   }
 
   return (
@@ -134,6 +144,7 @@ export default function ProfileView({ id, participants, courses, tags, onToggleA
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
           <div className="text-xs text-muted" style={{ fontWeight:600, letterSpacing:.5 }}>ETIQUETAS</div>
           <button className="btn-icon"
+            disabled={savingTags}
             onClick={() => { setEditingTags(!editingTags); setSelectedTags(p.tags||[]) }}>
             <i className={`ti ti-${editingTags ? 'x' : 'edit'}`}/>
             {editingTags ? 'Cancelar' : 'Editar etiquetas'}
@@ -142,8 +153,8 @@ export default function ProfileView({ id, participants, courses, tags, onToggleA
         {editingTags ? (
           <div>
             <TagSelector tags={tags} selected={selectedTags} onChange={toggleTag}/>
-            <button className="btn btn-orange btn-sm" onClick={saveTags} style={{ marginTop:8 }}>
-              <i className="ti ti-check"/> Guardar etiquetas
+            <button className="btn btn-orange btn-sm" onClick={saveTags} disabled={savingTags} style={{ marginTop:8 }}>
+              <i className={`ti ti-${savingTags ? 'loader-2' : 'check'}`}/> {savingTags ? 'Guardando…' : 'Guardar etiquetas'}
             </button>
           </div>
         ) : (

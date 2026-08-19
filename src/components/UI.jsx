@@ -184,6 +184,18 @@ export function ConfirmDialog({
   onConfirm,
   onClose,
 }) {
+  const [confirming, setConfirming] = useState(false)
+
+  const handleConfirm = async () => {
+    setConfirming(true)
+    try {
+      const result = await onConfirm()
+      if (!result?.error) onClose()
+    } finally {
+      setConfirming(false)
+    }
+  }
+
   return (
     <Modal onClose={onClose} width={420} label={title}>
       <div style={{ display:'flex', alignItems:'flex-start', gap:12, marginBottom:18 }}>
@@ -198,8 +210,8 @@ export function ConfirmDialog({
       </div>
       <div className="modal-foot">
         <button className="btn btn-ghost" onClick={onClose}>{cancelLabel}</button>
-        <button className="btn btn-orange" onClick={() => { onConfirm(); onClose() }}>
-          {danger && <i className="ti ti-trash"/>} {confirmLabel}
+        <button className="btn btn-orange" onClick={handleConfirm} disabled={confirming}>
+          {danger && <i className="ti ti-trash"/>} {confirming ? 'Procesando…' : confirmLabel}
         </button>
       </div>
     </Modal>

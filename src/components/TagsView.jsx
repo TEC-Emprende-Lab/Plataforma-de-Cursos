@@ -17,9 +17,30 @@ export default function TagsView({ tags, participants, onAdd, onEdit, onDelete }
   const [editName,  setEditName]  = useState('')
   const [editColor, setEditColor] = useState('orange')
   const [confirmTarget, setConfirmTarget] = useState(null)   // etiqueta a eliminar
+  const [creating, setCreating] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const startEdit = t => { setEditId(t.id); setEditName(t.name); setEditColor(t.color) }
-  const saveEdit  = () => { onEdit(editId, editName, editColor); setEditId(null) }
+  const saveEdit = async () => {
+    if (savingEdit) return
+    setSavingEdit(true)
+    try {
+      const result = await onEdit(editId, editName, editColor)
+      if (!result?.error) setEditId(null)
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+  const createTag = async () => {
+    if (!newName.trim() || creating) return
+    setCreating(true)
+    try {
+      const result = await onAdd(newName.trim(), newColor)
+      if (!result?.error) setNewName('')
+    } finally {
+      setCreating(false)
+    }
+  }
 
   const tagStats = [...tags]
     .map(t => ({ ...t, count: participants.filter(p => (p.tags||[]).includes(t.id)).length }))
@@ -74,18 +95,16 @@ export default function TagsView({ tags, participants, onAdd, onEdit, onDelete }
           <div style={{ flex:1, minWidth:180 }}>
             <label className="text-sm text-muted" style={{ display:'block', marginBottom:4 }}>Nombre</label>
             <input className="finput" value={newName} onChange={e => setNewName(e.target.value)}
+              disabled={creating}
               placeholder="ej. Becado, VIP, Empresa..."
-              onKeyDown={e => {
-                if (e.key === 'Enter' && newName.trim()) { onAdd(newName.trim(), newColor); setNewName('') }
-              }}/>
+              onKeyDown={e => { if (e.key === 'Enter') createTag() }}/>
           </div>
           <div>
             <label className="text-sm text-muted" style={{ display:'block', marginBottom:4 }}>Color</label>
             <ColorPicker selected={newColor} onChange={setNewColor}/>
           </div>
-          <button className="btn btn-orange"
-            onClick={() => { if (newName.trim()) { onAdd(newName.trim(), newColor); setNewName('') } }}>
-            <i className="ti ti-plus"/> Crear etiqueta
+          <button className="btn btn-orange" onClick={createTag} disabled={creating}>
+            <i className={`ti ti-${creating ? 'loader-2' : 'plus'}`}/> {creating ? 'Creando…' : 'Crear etiqueta'}
           </button>
         </div>
         {newName && (
@@ -122,10 +141,10 @@ export default function TagsView({ tags, participants, onAdd, onEdit, onDelete }
                     <ColorPicker selected={editColor} onChange={setEditColor}/>
                     <TagPill tag={{ id:'ep', name:editName, color:editColor }}/>
                     <div style={{ display:'flex', gap:6 }}>
-                      <button className="btn btn-orange btn-sm" onClick={saveEdit}>
-                        <i className="ti ti-check"/> Guardar
+                      <button className="btn btn-orange btn-sm" onClick={saveEdit} disabled={savingEdit}>
+                        <i className={`ti ti-${savingEdit ? 'loader-2' : 'check'}`}/> {savingEdit ? 'Guardando…' : 'Guardar'}
                       </button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setEditId(null)}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setEditId(null)} disabled={savingEdit}>
                         Cancelar
                       </button>
                     </div>

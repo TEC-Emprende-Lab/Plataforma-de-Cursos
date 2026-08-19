@@ -24,8 +24,17 @@ def test_frontend_uses_trusted_backend_instead_of_direct_storage_writes():
     hook = (REPO_ROOT / "src" / "hooks" / "useTemplates.js").read_text(
         encoding="utf-8"
     )
+    adapter = (
+        REPO_ROOT
+        / "src"
+        / "adapters"
+        / "supabase"
+        / "templatesAdapter.js"
+    ).read_text(encoding="utf-8")
+    compact_adapter = "".join(adapter.split())
 
-    assert "/api/templates/upload" in hook
-    assert "/api/templates/delete" in hook
-    assert ".upload(" not in hook
-    assert ".remove(" not in hook
+    assert "createTemplatesSupabaseAdapter" in hook
+    assert "/api/templates/upload" in adapter
+    assert "/api/templates/delete" in adapter
+    assert "supabase.storage.from(TEMPLATE_BUCKET).upload(" not in compact_adapter
+    assert "supabase.storage.from(TEMPLATE_BUCKET).remove(" not in compact_adapter

@@ -1,15 +1,16 @@
 # Roadmap de mejora progresiva
 
 > Fuente principal de verdad para la mejora de `Plataforma-de-Cursos`.
-> Última actualización: 2026-08-12.
+> Última actualización: 2026-08-19.
 
 ## Estado operativo actual
 
-**FASES 0, 1 Y 2 COMPLETADAS EN RAMAS DE TRABAJO — SIGUIENTE: FASE 3.**
+**FASES 0, 1, 2 Y 3 COMPLETADAS — SIGUIENTE: FASE 4.**
 
-La ejecución fue autorizada el 2026-08-12. Los cambios permanecen fuera de
-`main`: deben publicarse mediante Pull Request, ejecutar checks remotos y recibir
-confirmación del propietario antes de integrarse o desplegarse.
+Las Fases 2 y 3 fueron integradas en `main` mediante los PR #2 y #3. La
+validación posterior de Fase 3 se realiza en `phase/3-validation`; sus
+correcciones deben publicarse mediante Pull Request, ejecutar checks remotos y
+recibir confirmación del propietario antes de integrarse o desplegarse.
 
 ## 1. Objetivo y reglas innegociables
 
@@ -42,8 +43,8 @@ Fecha de verificación: 2026-08-07.
 - Producción frontend: responde HTTP 200 y muestra el login de Supabase sin errores de consola en la carga inicial.
 - Backend Render: `/api/health` responde `status=ok`, Cairo disponible e IA configurada.
 - `npm run build`: pasa; Vite advierte un chunk principal de aproximadamente 641 kB.
-- `npm run lint`: pasa con 0 errores y conserva 17 advertencias conocidas.
-- La red actual contiene 41 pruebas Vitest y 101 pruebas pytest. Todavía no hay E2E.
+- `npm run lint`: pasa con 0 errores y conserva 14 advertencias conocidas.
+- La red actual contiene 51 pruebas Vitest y 104 pruebas pytest. Todavía no hay E2E.
 - Las dependencias directas Python están fijadas; `pip check`, `pip-audit` y `npm audit` no reportan vulnerabilidades conocidas en el conjunto actual.
 - El working tree ya contenía una modificación ajena en `backend/app.py`: un cambio de indentación en la llamada a `send_file`. Debe preservarse salvo autorización expresa.
 - `xlsx` fue reemplazado por ExcelJS cargado bajo demanda y DOMPurify quedó fijado en una versión auditada.
@@ -255,6 +256,11 @@ Validación de salida:
 | 2026-08-18 | Fase 3 | Contrato uniforme entre adapters | Normalizados los retornos de éxito y error de los adapters locales y Supabase: entidades en operaciones con entidad, `{ id, deleted: true }` en eliminaciones y `{ error: { message, code } }` ante errores. |
 | 2026-08-18 | Fase 3 | Estados de carga y error en hooks | Añadidos estados independientes de carga/error para operaciones de autenticación, cursos, participantes, etiquetas y plantillas, evitando representar operaciones fallidas como éxitos. |
 | 2026-08-18 | Fase 3 | Verificación de migraciones y seed en Supabase local | Migraciones y datos iniciales fueron verificados desde cero en Supabase local antes de considerar cambios remotos, incluyendo tablas, relaciones, RLS, Storage y plantillas SVG. |
+| 2026-08-19 | Fase 3 | Validación posterior al merge | Se corrigió el contrato de seguridad de plantillas tras moverlo al adapter, se añadieron pruebas de configuración/adapters y las suites pasan con 51 pruebas Vitest y 104 pytest. |
+| 2026-08-19 | Fase 3 | Mutaciones visibles | Formularios, confirmaciones, importación y acciones CRUD esperan el resultado persistente y solo cierran o anuncian éxito cuando la operación termina correctamente. |
+| 2026-08-19 | Fase 3 | Transacción masiva y permisos RPC | La migración `20260819000000_harden_participant_transactions.sql` restringe ejecución a `authenticated`, endurece `search_path`, rechaza participantes inexistentes y vuelve atómica la actualización masiva de campos + cursos. |
+| 2026-08-19 | Fase 3 | Supabase local desde cero | `supabase start` aplicó todas las migraciones y `seed.sql`; una prueba con FK inválida confirmó rollback de pago/acceso y permisos `anon=false`, `authenticated=true`. |
+| 2026-08-19 | Fase 3 | Revisión independiente Claude Code/Sonnet | Dos subagentes detectaron el test desactualizado, la actualización masiva no atómica y la divergencia de `toggleActive`; los tres hallazgos fueron corregidos con cobertura. |
 
 ## 7. Problemas y cambios respecto al plan
 
@@ -271,3 +277,13 @@ Validación de salida:
 - La revisión externa con Claude Sonnet volvió a intentarse en Fase 2 en modo de solo lectura y agotó el tiempo sin producir hallazgos. La revisión adversarial interna sí completó varias rondas y sus cuatro bloqueos reproducibles fueron corregidos con pruebas.
 - Docker Desktop no estaba activo, por lo que no se ejecutó un `docker build` real. El contrato del Dockerfile tiene pruebas estáticas y el mismo stack se validó en Linux/WSL con CairoSVG y Gunicorn; el build de imagen permanece como check obligatorio del Pull Request.
 - La migración `20260812000000_secure_svg_templates.sql` debe aplicarse junto con el despliegue backend. Antes de desplegar, Render necesita `SUPABASE_SERVICE_ROLE_KEY`, `CORS_ALLOWED_ORIGINS` y `RATELIMIT_STORAGE_URI`; nunca exponer la service role al frontend.
+- La validación posterior al merge de Fase 3 encontró que los hooks devolvían errores correctamente, pero varios callers todavía cerraban diálogos o mostraban éxito sin esperar la promesa. La corrección conserva los adapters de Ximena y hace que la UI respete su contrato.
+- `20260819000000_harden_participant_transactions.sql` debe aplicarse antes de desplegar el frontend que usa `bulk_update_participants_with_courses`; no modificar ni reescribir la migración original ya integrada.
+
+## 8. Siguiente paso ejecutable
+
+Publicar `phase/3-validation` mediante Pull Request y ejecutar sus checks remotos.
+Aplicar la migración de endurecimiento antes de desplegar el frontend. Tras la
+confirmación del propietario, iniciar la Fase 4 en una rama nueva desde `main`
+actualizado, comenzando por calcular la fecha actual en tiempo de llamada y
+unificar la vigencia por curso con pruebas de regresión.

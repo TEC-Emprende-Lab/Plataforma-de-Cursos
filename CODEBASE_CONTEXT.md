@@ -1,11 +1,12 @@
 # Contexto técnico persistente de la codebase
 
 > Mapa de orientación rápida. No reemplaza al código ni a `ROADMAP.md`.
-> Última actualización: 2026-08-12.
+> Última actualización: 2026-08-19.
 
-Estado operativo: Fases 0, 1 y 2 completadas en ramas de trabajo. La rama actual
-`phase/2-security` aún requiere Pull Request, checks remotos y confirmación del
-propietario antes de merge/despliegue. La siguiente fase es la Fase 3.
+Estado operativo: Fases 0 a 3 completadas; Fases 2 y 3 ya fueron integradas en
+`main`. La rama `phase/3-validation` contiene correcciones posteriores al merge
+y requiere Pull Request, checks remotos y confirmación del propietario. La
+siguiente fase de implementación es la Fase 4.
 
 ## Propósito del sistema
 
@@ -35,6 +36,7 @@ Supabase es la fuente de verdad. El modo `localStorage` debe quedar explícitame
 - Frontend React: `src/main.jsx` → `src/App.jsx`.
 - Backend Flask: `backend/app.py`.
 - Configuración frontend externa: `src/config.js`.
+- Selección/validación de persistencia: `src/lib/config.js`.
 - Cliente Supabase: `src/lib/supabase.js`.
 - Esquema versionado: `supabase/migrations/`.
 - Esquema de plantillas: migración `20260812000000_secure_svg_templates.sql`; `supabase_setup.sql` queda como referencia compatible.
@@ -46,6 +48,7 @@ Supabase es la fuente de verdad. El modo `localStorage` debe quedar explícitame
 ```text
 src/
   App.jsx                  Orquestador, guard de sesión y router interno.
+  adapters/                Implementaciones equivalentes para Supabase y modo local.
   components/              Vistas y componentes React.
   hooks/                   Estado y mutaciones de datos.
   lib/supabase.js          Singleton Supabase y retry de PGRST303.
@@ -62,6 +65,7 @@ backend/
   Dockerfile               Imagen desplegable del servicio.
 supabase/
   migrations/              Esquema principal y cambios versionados.
+                            La migración 20260819000000 endurece y amplía las RPC de participantes.
   seed.sql                 Datos iniciales; no ejecutar indiscriminadamente en producción.
 public/templates/          Copias estáticas de plantillas para preview frontend.
 docs/                      Diseño, revisión técnica histórica y capturas.
@@ -149,29 +153,28 @@ Metadata en `svg_templates`, archivo en bucket `certificate-templates`, o SVG in
 
 ## Hooks y responsabilidades
 
-- `useAuth`: sesión Supabase, login y logout.
-- `useParticipants`: carga/mutaciones y sincronización de relaciones N:N.
-- `useCourses`: CRUD de cursos y adaptación DB ↔ UI.
-- `useTags`: CRUD de etiquetas.
-- `useTemplates`: metadata, Storage y contenido SVG; en modo sin Supabase, las personalizadas solo viven en memoria.
+- `useAuth`: sesión, login y logout mediante el adapter seleccionado.
+- `useParticipants`: estado y mutaciones; delega persistencia y relaciones N:N al adapter local o Supabase.
+- `useCourses`: estado CRUD; la adaptación DB ↔ UI vive en los adapters.
+- `useTags`: estado CRUD sobre el adapter seleccionado.
+- `useTemplates`: metadata y contenido SVG mediante adapters; Supabase conserva las escrituras confiables a través de Flask.
 - `useTheme`: preferencia visual en `localStorage`; no es persistencia de dominio.
 - `useGlobalShortcut`: registra atajos globales de teclado, incluido el acceso a la paleta de comandos.
 
-Los hooks exponen actualmente APIs similares entre Supabase y modo local, pero sus retornos, validaciones y garantías no son completamente equivalentes.
+Las mutaciones de ambos modos usan el contrato: entidad en éxitos con entidad,
+`{ id, deleted: true }` en eliminaciones y `{ error: { message, code } }` en
+errores. Los callers deben esperar el resultado antes de cerrar UI o anunciar
+éxito.
 
 ## Persistencia actual y objetivo
 
-Estado actual:
+Estado actual y objetivo cumplido:
 
-- Con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`: Supabase.
-- Sin ellas: participantes, cursos y etiquetas pasan automáticamente a tres claves de `localStorage`; plantillas personalizadas quedan en memoria.
-- La preferencia de tema también usa `localStorage`, lo cual es aceptable y no constituye una segunda fuente de datos de negocio.
-
-Objetivo aprobado:
-
-- Producción: Supabase obligatorio y fallo seguro si falta configuración.
-- Desarrollo: modo local solo con una bandera explícita.
-- No sincronizar Supabase y `localStorage`; cada ejecución usa exactamente un adaptador.
+- `VITE_STORAGE_MODE=supabase` exige `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
+- `VITE_STORAGE_MODE=local` solo es válido en desarrollo; producción lo rechaza.
+- La ausencia o invalidez del modo muestra un fallo de configuración antes de importar `App`.
+- Cada ejecución usa exactamente un adapter; no existe fallback automático ni sincronización entre Supabase y `localStorage`.
+- La preferencia de tema sigue usando `localStorage`, lo cual es aceptable y no constituye persistencia de dominio.
 
 ## Autenticación y autorización
 
@@ -186,6 +189,12 @@ La migración `20260812000000_secure_svg_templates.sql` formaliza tabla, bucket 
 RLS de plantillas. El bucket conserva lectura pública para previews, pero usuarios
 `anon`/`authenticated` no pueden escribir: upload/delete pasan por Flask, que
 valida JWT y SVG antes de usar `SUPABASE_SERVICE_ROLE_KEY` solo en servidor.
+
+Las altas y ediciones de participantes con cursos/etiquetas usan RPC
+transaccionales. `20260819000000_harden_participant_transactions.sql` mantiene
+`SECURITY INVOKER`, restringe ejecución a `authenticated`, rechaza IDs
+inexistentes y añade `bulk_update_participants_with_courses` para que los campos
+y cursos posteriores a una importación se confirmen o reviertan juntos.
 
 ## Backend Flask
 
@@ -248,6 +257,7 @@ Deuda conocida: `TODAY` queda congelado al importar el módulo y la revocación 
 
 - Preservar el diff local preexistente en `backend/app.py`.
 - No ejecutar seed ni migraciones contra producción durante desarrollo.
+- Aplicar `20260819000000_harden_participant_transactions.sql` antes de desplegar código que invoque la RPC masiva.
 - No probar CRUD con datos reales.
 - No renderizar SVG no confiable sin sanitización.
 - No asumir que un build exitoso implica que lint, tests o flujos visibles pasan.
@@ -263,7 +273,7 @@ Deuda conocida: `TODAY` queda congelado al importar el módulo y la revocación 
 Desde la raíz del repositorio:
 
 ```text
-npm run lint   # pasa con 0 errores; conserva 16 advertencias conocidas
+npm run lint   # pasa con 0 errores; conserva 14 advertencias conocidas
 npm run build  # pasa con advertencia de chunk grande
 ```
 
@@ -272,13 +282,13 @@ GitHub Actions ejecuta actualmente análisis ESLint/Semgrep y Trivy/TruffleHog e
 Red de pruebas disponible:
 
 ```text
-npm test          # 41 pruebas Vitest frontend
-npm run lint      # 0 errores; 17 advertencias conocidas
+npm test          # 51 pruebas Vitest frontend
+npm run lint      # 0 errores; 14 advertencias conocidas
 npm run build     # build de producción
 
 cd backend
 ../.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
-../.venv/Scripts/python.exe -m pytest   # 101 pruebas backend
+../.venv/Scripts/python.exe -m pytest   # 104 pruebas backend
 ```
 
 Las pruebas backend bloquean red y efectos laterales, simulan Cairo y no usan

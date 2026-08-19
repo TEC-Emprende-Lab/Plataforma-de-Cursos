@@ -296,8 +296,9 @@ export default function GalleryView({ onUseCertificate }) {
   }
   const confirmDelete = async () => {
     const id = confirmTpl.id
-    await deleteTemplate(id)
-    if (selectedId === id) setSelectedId(null)
+    const result = await deleteTemplate(id)
+    if (!result?.error && selectedId === id) setSelectedId(null)
+    return result
   }
 
   const handleUse = async (tpl) => {
