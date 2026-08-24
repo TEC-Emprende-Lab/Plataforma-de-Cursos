@@ -37,4 +37,17 @@ describe('cálculos de acceso', () => {
   it('produce la fecha ISO local de hoy', () => {
     expect(time.todayISO()).toBe('2026-08-12')
   })
+
+  it('recalcula "hoy" en cada llamada al cruzar la medianoche', () => {
+    vi.setSystemTime(new Date(2026, 7, 12, 23, 59))
+    expect(time.daysElapsed('2026-08-12')).toBe(0)
+    expect(time.isExpired('2026-08-12', 1)).toBe(false)
+
+    vi.setSystemTime(new Date(2026, 7, 13, 0, 1))
+    expect(time.daysElapsed('2026-08-12')).toBe(1)
+    expect(time.isExpired('2026-08-12', 1)).toBe(true)
+
+    vi.setSystemTime(new Date(2026, 7, 13, 23, 59))
+    expect(time.todayISO()).toBe('2026-08-13')
+  })
 })

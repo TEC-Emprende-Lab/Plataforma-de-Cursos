@@ -3,18 +3,26 @@
 //  Funciones puras de cálculo de tiempo y fechas.
 //  No dependen de React ni de ningún otro módulo.
 //
-//  Regla: el día de ingreso cuenta como día 1.
+//  Regla: el día de ingreso cuenta como día 1 de vigencia.
+//  `daysElapsed` mide días completos transcurridos desde el
+//  ingreso: retorna 0 el mismo día del ingreso y el acceso
+//  expira exactamente al cumplirse `days` días naturales.
 //  Si la fecha de ingreso es futura, se trata como si fuera hoy.
 //  Todas las funciones aceptan un segundo parámetro opcional
 //  `days` (días de acceso del curso). Si no se pasa, se usa
 //  el valor global ACCESS_DAYS como respaldo.
+//
+//  "Hoy" se calcula en cada llamada para que una sesión abierta
+//  al cruzar la medianoche refleje la fecha real.
 // ============================================================
 
 export { ACCESS_DAYS, WARN_DAYS, EXAM_WARN } from '../data/constants.js'
 import { ACCESS_DAYS, WARN_DAYS, EXAM_WARN } from '../data/constants.js'
 
-const _now = new Date()
-const TODAY = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate())
+function todayAtMidnight() {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+}
 
 function parseLocal(fechaStr) {
   const [y, m, d] = fechaStr.split('-').map(Number)
@@ -22,12 +30,13 @@ function parseLocal(fechaStr) {
 }
 
 /**
- * Días transcurridos desde la fecha de ingreso (mín. 0).
+ * Días completos transcurridos desde la fecha de ingreso (mín. 0).
+ * El mismo día del ingreso retorna 0.
  * Si la fecha es futura, retorna 0.
  * @param {string} fechaStr - Formato ISO 'YYYY-MM-DD'
  */
 export function daysElapsed(fechaStr) {
-  return Math.max(0, Math.round((TODAY - parseLocal(fechaStr)) / 86_400_000))
+  return Math.max(0, Math.round((todayAtMidnight() - parseLocal(fechaStr)) / 86_400_000))
 }
 
 /**
