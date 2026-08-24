@@ -7,20 +7,12 @@ import { useState }       from 'react'
 import { Modal }          from './UI.jsx'
 import { AccessBar }      from './UI.jsx'
 import { TagSelector }    from './TagSelector.jsx'
-import { todayISO, ACCESS_DAYS } from '../utils/time.js'
+import { todayISO, ACCESS_DAYS, getAccessDays } from '../utils/time.js'
 
 const EMPTY_FORM = {
   name:'', cedula:'', email:'', phone:'',
   status:'activo', payment:'pagado', access:true,
   fecha:todayISO(), courses:[], tags:[], notes:'',
-}
-
-/** Resuelve los días de acceso según los cursos seleccionados en el form */
-function resolveAccessDays(selectedCourseIds, courses) {
-  if (!selectedCourseIds?.length || !courses?.length) return ACCESS_DAYS
-  const enrolled = courses.filter(c => selectedCourseIds.includes(c.id))
-  if (!enrolled.length) return ACCESS_DAYS
-  return Math.max(...enrolled.map(c => Number(c.accessDays) || ACCESS_DAYS))
 }
 
 export default function ParticipantModal({ participant, courses, tags, onSave, onClose }) {
@@ -64,7 +56,7 @@ export default function ParticipantModal({ participant, courses, tags, onSave, o
   const activeCourses = courses.filter(c => c.active)
 
   // Días de acceso según los cursos actualmente seleccionados en el form
-  const accessDays = resolveAccessDays(form.courses, courses)
+  const accessDays = getAccessDays({ courses: form.courses }, courses)
 
   return (
     <Modal onClose={onClose} width={560}>
@@ -142,7 +134,7 @@ export default function ParticipantModal({ participant, courses, tags, onSave, o
                 onClick={() => toggleCourse(c.id)}
                 className={`pill${form.courses.includes(c.id) ? ' sel' : ''}`}>
                 {c.short}
-                {c.accessDays && c.accessDays !== 45
+                {c.accessDays && c.accessDays !== ACCESS_DAYS
                   ? <span style={{ fontSize:10, opacity:.7, marginLeft:4 }}>({c.accessDays}d)</span>
                   : null}
               </span>

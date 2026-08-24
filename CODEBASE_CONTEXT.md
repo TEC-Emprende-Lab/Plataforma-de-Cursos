@@ -156,7 +156,7 @@ Metadata en `svg_templates`, archivo en bucket `certificate-templates`, o SVG in
 ## Hooks y responsabilidades
 
 - `useAuth`: sesión, login y logout mediante el adapter seleccionado.
-- `useParticipants`: estado y mutaciones; delega persistencia y relaciones N:N al adapter local o Supabase.
+- `useParticipants`: estado y mutaciones; delega persistencia y relaciones N:N al adapter local o Supabase. Recibe `courses` para la revocación automática por curso, que ocurre solo en memoria.
 - `useCourses`: estado CRUD; la adaptación DB ↔ UI vive en los adapters.
 - `useTags`: estado CRUD sobre el adapter seleccionado.
 - `useTemplates`: metadata y contenido SVG mediante adapters; Supabase conserva las escrituras confiables a través de Flask.
@@ -251,9 +251,11 @@ Nunca registrar claves, JWT, cédulas completas en logs de depuración ni conten
 - fechas de expiración y prueba;
 - resolución de `accessDays` según cursos.
 
-Regla vigente: si hay varios cursos, se usa el máximo `accessDays`; fallback global: 45 días.
+Regla vigente: si hay varios cursos, se usa el máximo `accessDays`; fallback global: 45 días. El día de ingreso cuenta como día 1 de vigencia; `daysElapsed` mide días completos transcurridos y "hoy" se calcula en cada llamada.
 
-Deuda conocida: `TODAY` queda congelado al importar el módulo y la revocación inicial en `useParticipants` no usa los días por curso.
+`classifyAccess(participant, courses)` es la clasificación canónica de estados (`vigente`, `por_vencer`, `expirado`, `sin_acceso`) y debe usarse en todas las vistas, filtros, badges y PDF. `applyAutoRevoke(participants, courses)` revoca vencidos según los días por curso, solo en estado cliente (no persiste) y no hace nada sin cursos cargados.
+
+Deuda resuelta en Fase 4: `TODAY` ya no queda congelado al importar y la revocación automática sí usa los días por curso.
 
 ## Riesgos que un agente debe conocer antes de editar
 

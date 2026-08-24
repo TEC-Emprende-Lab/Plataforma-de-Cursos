@@ -8,7 +8,7 @@
 // ============================================================
 
 import { useState, useRef } from 'react'
-import { todayISO } from '../utils/time.js'
+import { todayISO, ACCESS_DAYS } from '../utils/time.js'
 import { normalizeCedula } from '../utils/cedula.js'
 import { mapWithConcurrency } from '../utils/async.js'
 import { HACIENDA_API } from '../config.js'
@@ -373,7 +373,7 @@ export default function ImportView({ participants, courses = [], onImport, onBul
                   Acceso al contenido
                 </div>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13 }}>
-                  <Radio name="acc" value="on"   checked={bulkAccess === 'on'}   onChange={setBulkAccess} label="Activar (45 días)"/>
+                  <Radio name="acc" value="on"   checked={bulkAccess === 'on'}   onChange={setBulkAccess} label="Activar acceso"/>
                   <Radio name="acc" value="off"  checked={bulkAccess === 'off'}  onChange={setBulkAccess} label="Sin acceso"/>
                   <Radio name="acc" value="none" checked={bulkAccess === 'none'} onChange={setBulkAccess} label="Sin cambio"/>
                 </div>
@@ -387,7 +387,7 @@ export default function ImportView({ participants, courses = [], onImport, onBul
                       onChange={e => setBulkAccessFecha(e.target.value)}
                       style={{ maxWidth:180 }}/>
                     <span className="text-xs text-muted">
-                      Se contarán 45 días desde esta fecha.
+                      La vigencia se calcula por curso (máximo entre los cursos de cada participante; {ACCESS_DAYS} días si el curso no define).
                     </span>
                   </div>
                 )}

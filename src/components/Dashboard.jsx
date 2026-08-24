@@ -1,4 +1,4 @@
-import { isExpired, isWarning, fmtDate, getAccessDays, accessPct } from '../utils/time.js'
+import { classifyAccess, fmtDate, getAccessDays, accessPct } from '../utils/time.js'
 import { StatCard, TimerBadge, Avatar } from './UI.jsx'
 import { DonutAccess, BarChartCourses } from './Charts.jsx'
 
@@ -9,8 +9,8 @@ export default function Dashboard({ participants, courses, setView }) {
   const today    = new Date().toLocaleDateString('es-CR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
   const activos  = participants.filter(p=>p.status==='activo').length
   const conAcc   = participants.filter(p=>p.access).length
-  const expired  = participants.filter(p=>p.access&&isExpired(p.fecha, getAccessDays(p, courses))).length
-  const warning  = participants.filter(p=>p.access&&isWarning(p.fecha, getAccessDays(p, courses))).length
+  const expired  = participants.filter(p=>classifyAccess(p,courses)==='expirado').length
+  const warning  = participants.filter(p=>classifyAccess(p,courses)==='por_vencer').length
   const recent   = [...participants].sort((a,b)=>b.fecha.localeCompare(a.fecha)).slice(0,6)
   const activeCourses = courses.filter(c=>c.active)
 
@@ -107,7 +107,7 @@ export default function Dashboard({ participants, courses, setView }) {
                   className="recent-row"
                   style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',
                     borderTop:i>0?'1px solid var(--cream-2)':'none',cursor:'pointer'}}>
-                  <Avatar name={p.name} variant={isExpired(p.fecha,days)?'red':isWarning(p.fecha,days)?'warn':'cream'}/>
+                  <Avatar name={p.name} variant={classifyAccess(p,courses)==='expirado'?'red':classifyAccess(p,courses)==='por_vencer'?'warn':'cream'}/>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontWeight:600,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div>
                     <div className="text-xs text-muted" style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>

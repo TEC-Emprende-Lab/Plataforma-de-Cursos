@@ -139,3 +139,49 @@ export function getAccessDays(participant, courses = []) {
   if (!enrolled.length) return ACCESS_DAYS
   return Math.max(...enrolled.map(c => Number(c.accessDays) || ACCESS_DAYS))
 }
+
+/**
+ * Clasifica el estado de acceso de un participante de forma única
+ * para todas las vistas (Control de Accesos, Dashboard, filtros,
+ * sidebar, gráficos y PDF):
+ *
+ * - 'expirado':   su período ya venció, independientemente de la
+ *                 marca manual/automática de acceso.
+ * - 'por_vencer': tiene acceso y quedan ≤ WARN_DAYS días.
+ * - 'vigente':    tiene acceso con más de WARN_DAYS días restantes.
+ * - 'sin_acceso': no tiene acceso habilitado y su período aún no vence.
+ *
+ * @param {object} participant
+ * @param {Array}  courses
+ * @returns {'expirado'|'por_vencer'|'vigente'|'sin_acceso'}
+ */
+export function classifyAccess(participant, courses = []) {
+  const days = getAccessDays(participant, courses)
+  if (isExpired(participant.fecha, days)) return 'expirado'
+  if (!participant.access) return 'sin_acceso'
+  return isWarning(participant.fecha, days) ? 'por_vencer' : 'vigente'
+}
+
+/**
+ * Revoca el acceso de los participantes cuyo período venció según
+ * los días de acceso reales de sus cursos. Opera únicamente sobre
+ * la lista en memoria: no persiste ningún cambio en la base de
+ * datos ni en localStorage. Sin cursos cargados no revoca a nadie,
+ * porque no puede resolver la vigencia real.
+ *
+ * @param {Array} participants
+ * @param {Array} courses
+ * @returns {Array} nueva lista; devuelve la misma referencia si no hay cambios
+ */
+export function applyAutoRevoke(participants, courses = []) {
+  if (!courses.length || !participants?.length) return participants
+  let changed = false
+  const next = participants.map(p => {
+    if (!p.access) return p
+    const days = getAccessDays(p, courses)
+    if (!isExpired(p.fecha, days)) return p
+    changed = true
+    return { ...p, access: false }
+  })
+  return changed ? next : participants
+}

@@ -4,21 +4,23 @@
 //  para respetar dark mode automáticamente.
 // ============================================================
 
-import { isExpired, isWarning, getAccessDays } from '../utils/time.js'
+import { classifyAccess } from '../utils/time.js'
 
 // ── Donut: estado de accesos ──────────────────────────────
 /**
  * Donut con 3 segmentos: con acceso vigente / por vencer ≤7d / expirados.
- * No cuenta participantes sin acceso (campo .access = false).
+ * No cuenta participantes en 'sin_acceso' (sin acceso habilitado y con
+ * vigencia aún viva). Los expirados se cuentan aunque la marca de acceso
+ * ya se haya revocado.
  */
 export function DonutAccess({ participants, courses }) {
   let activos = 0, warning = 0, expired = 0
   for (const p of participants) {
-    if (!p.access) continue
-    const days = getAccessDays(p, courses)
-    if (isExpired(p.fecha, days))      expired++
-    else if (isWarning(p.fecha, days)) warning++
-    else                                activos++
+    const st = classifyAccess(p, courses)
+    if (st === 'sin_acceso') continue
+    if (st === 'expirado')      expired++
+    else if (st === 'por_vencer') warning++
+    else                          activos++
   }
   const total = activos + warning + expired
 
@@ -61,7 +63,7 @@ export function DonutAccess({ participants, courses }) {
           fontFamily="var(--font-display)" fontSize="22" fontWeight="600"
           fill="var(--black)">{total}</text>
         <text x={cx} y={cy + 14} textAnchor="middle"
-          fontSize="10" fill="var(--gray)">con acceso</text>
+          fontSize="10" fill="var(--gray)">participantes</text>
       </svg>
 
       <ul style={{ listStyle:'none', display:'flex', flexDirection:'column', gap:8, fontSize:13, minWidth:140 }}>
