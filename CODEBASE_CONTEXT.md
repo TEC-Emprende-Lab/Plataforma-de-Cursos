@@ -70,7 +70,10 @@ supabase/
                             La migración 20260819000000 endurece y amplía las RPC de participantes.
   seed.sql                 Datos iniciales; no ejecutar indiscriminadamente en producción.
 public/templates/          Copias estáticas de plantillas para preview frontend.
-docs/                      Diseño, revisión técnica histórica y capturas.
+docs/                      Documentación detallada: ARQUITECTURA.md (capas y contratos),
+                           BASE-DE-DATOS.md (esquema y migraciones), OPERACION.md
+                           (uso, deploy, troubleshooting) más revisiones históricas.
+                           El README conserva solo lo esencial y enlaza aquí.
 .github/workflows/         Análisis de calidad y seguridad en GitHub Actions.
 ```
 

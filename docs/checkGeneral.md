@@ -1,8 +1,17 @@
 # Revisión técnica general
 
+> **Nota de Fase 4:** los seis hallazgos de este documento fueron verificados
+> uno por uno contra la rama `phase/4-functional-fixes`. Cada sección indica su
+> estado final y la corrección que lo resolvió. Los hallazgos confirmados se
+> dieron por cerrados solo después de reproducir el problema descrito en el
+> código y comprobar la corrección correspondiente (con prueba automatizada
+> cuando aplicaba).
+
 ## Hallazgos
 
 ### [Media] Los recordatorios no reciben la información de los cursos
+
+**Estado:** Corregido — commit `fix: pasar cursos a las utilidades de recordatorios desde todas las vistas`. `RemindersView`, `AccessView` y `ProfileView` pasan `courses`, y `email.js` calcula asunto y fechas con la duración real del curso (`getAccessDays`). Verificado con la suite de `src/utils/email.test.js` y el flujo visible de vista previa.
 
 **Ubicación:**
 
@@ -30,6 +39,8 @@
 
 ### [Media] Un participante sin acceso puede aparecer como expirado
 
+**Estado:** Corregido — commit `fix: unificar vigencia por curso y clasificacion de participantes sin acceso`. La clasificación canónica `classifyAccess` distingue `'expirado'` (requiere `p.access` activo) de `'sin_acceso'`; AccessView, ParticipantsView, Dashboard, Sidebar, Charts y pdf la usan para listas, filtros y métricas. Verificado con las pruebas de clasificación en `src/utils/time.test.js`.
+
 **Ubicación:**
 
 - `src/components/AccessView.jsx`, línea 10.
@@ -54,6 +65,8 @@
 
 ### [Media] El modo local permite crear participantes con el mismo correo
 
+**Estado:** Corregido — commit `fix: realizar validación de datos equivalente en local/supabase`. El modal comprueba el correo contra la lista actual (`findDuplicateByEmail`, insensible a mayúsculas) antes de guardar, en la capa compartida por ambos modos; el bloqueo ocurre en la UI y no requiere restricción única local.
+
 **Ubicación:**
 
 - `src/components/ParticipantModal.jsx`, líneas 43-55.
@@ -77,6 +90,8 @@
 
 ### [Media] El formulario permite guardar correo y teléfono con formatos inválidos
 
+**Estado:** Corregido — commit `fix: realizar validación de datos equivalente en local/supabase`. `ParticipantModal` valida formato de correo, teléfono y cédula (opcional pero válido si se ingresa) con errores inline; los formatos viven en `utils/validators.js`, fuente única compartida con la importación CSV. Verificado por las pruebas de `src/utils/validators.test.js`.
+
 **Ubicación:** `src/components/ParticipantModal.jsx`, líneas 43-55 y 90-98.
 
 **Qué ocurre:** La validación solo comprueba que el nombre y el correo no estén vacíos. No verifica el formato del correo ni el contenido del teléfono. Aunque el correo usa `type="email"`, el guardado se ejecuta mediante un botón normal y no mediante el envío validado de un formulario HTML.
@@ -98,6 +113,8 @@
 ---
 
 ### [Baja] Una etiqueta puede guardarse sin nombre
+
+**Estado:** Corregido — commit `fix: realizar validación de datos equivalente en local/supabase`. La edición usa la misma validación que la creación (`validateTag`: nombre requerido, trim y duplicados insensibles a mayúsculas) tanto en la vista como en ambos adapters, con mensaje visible en pantalla. Verificado por las pruebas de adapters de etiquetas (local y Supabase).
 
 **Ubicación:**
 
@@ -123,6 +140,8 @@
 
 ### [Media] La vista previa de exportación superpone el correo y los cursos
 
+**Estado:** Corregido — commit de cierre de Fase 4. La tabla de vista previa define anchos por columna (`colgroup`) y la clase `tpreview` aplica `overflow-wrap:anywhere`, de modo que correos largos y listas de cursos se envuelven dentro de su celda en lugar de invadir la columna siguiente. Comprobado en escritorio y en los puntos de quiebre existentes (≤1023 px la grilla pasa a una columna y la tabla conserva scroll horizontal).
+
 **Ubicación:**
 
 - `src/components/ExportView.jsx`, líneas 109-129.
@@ -143,6 +162,11 @@
 **Posible mejora:** Definir anchos apropiados para las columnas y aplicar una estrategia consistente para contenido largo, como salto de línea, `overflow-wrap` o truncamiento con puntos suspensivos. La corrección debe comprobarse en escritorio y en los puntos de quiebre responsivos existentes.
 
 ## Orden sugerido para comprobarlos
+
+Los seis procedimientos se ejecutaron durante la verificación de Fase 4
+(rama `phase/4-functional-fixes`) y todos confirmaron el problema antes de la
+corrección y su ausencia después. Quedan como guía de comprobación manual para
+regresiones futuras.
 
 1. Etiqueta sin nombre.
 2. Correo y teléfono inválidos.
