@@ -1,16 +1,25 @@
 # Roadmap de mejora progresiva
 
 > Fuente principal de verdad para la mejora de `Plataforma-de-Cursos`.
-> Última actualización: 2026-08-19.
+> Última actualización: 2026-08-24.
 
 ## Estado operativo actual
 
-**FASES 0, 1, 2 Y 3 COMPLETADAS — SIGUIENTE: FASE 4.**
+**FASES 0, 1, 2 Y 3 COMPLETADAS — FASE 4 EN CURSO.**
 
-Las Fases 2 y 3 fueron integradas en `main` mediante los PR #2 y #3. La
-validación posterior de Fase 3 se realiza en `phase/3-validation`; sus
-correcciones deben publicarse mediante Pull Request, ejecutar checks remotos y
-recibir confirmación del propietario antes de integrarse o desplegarse.
+Las Fases 2 y 3 fueron integradas en `main` mediante los PR #2 y #3. Las
+correcciones de validación posterior de Fase 3 fueron integradas mediante el
+PR #4 (`phase/3-validation`), ya mergeado en `main`. Antes de desplegar el
+frontend que invoca `bulk_update_participants_with_courses` debe aplicarse la
+migración `20260819000000_harden_participant_transactions.sql` en Supabase
+remoto.
+
+La Fase 4 se ejecuta en la rama `phase/4-functional-fixes` como un único Pull
+Request al cierre, con commits atómicos revisados por el propietario antes de
+cada commit. Decisiones previas registradas: se mantiene la aritmética de
+vigencia vigente (el día de ingreso cuenta como día 1) corrigiendo solo
+documentación; la revocación automática seguirá cambiando únicamente el estado
+en cliente, sin escrituras a base de datos durante la carga.
 
 ## 1. Objetivo y reglas innegociables
 
@@ -35,6 +44,7 @@ Mejorar progresivamente la arquitectura, mantenibilidad, seguridad, escalabilida
 | D-004 | Aprobada | Proteger progresivamente Flask con la sesión emitida por Supabase. | Unifica la frontera de autenticación sin introducir otro proveedor ni otro almacén de usuarios. |
 | D-005 | Aprobada | Caracterizar y probar antes de refactorizar. | Permite distinguir deuda existente de regresiones nuevas. |
 | D-006 | Aprobada | Usar ramas de trabajo y Pull Requests hacia `main`. | Mantiene `main` estable y permite exigir validaciones, revisión independiente y confirmación del propietario antes de integrar. |
+| D-007 | Aprobada | Semántica de vigencia: la fecha manda — `'expirado'` aplica aunque `p.access` esté apagado; `'sin_acceso'` solo con vigencia viva. Badges y PDF usan la misma precedencia. | La revocación automática apaga `access` en cliente para todos los vencidos; exigir la marca activa haría desaparecer el estado expirado tras cada recarga. Distinguir revocación manual de automática requeriría persistencia nueva y queda como deuda futura si se desea esa UX. |
 
 ## 3. Línea base verificada
 
@@ -172,16 +182,20 @@ Validación de salida:
 
 ### Fase 4 — Corrección funcional respaldada por pruebas
 
-Estado: **PENDIENTE**
+Estado: **EN CURSO** (rama `phase/4-functional-fixes`)
 Depende de: Fases 1 y 3.
 
-- [ ] Calcular la fecha actual en tiempo de llamada, no al importar el módulo.
-- [ ] Unificar la vigencia por curso en carga, filtros, recordatorios, exportaciones y revocación.
-- [ ] Corregir clasificación de participantes sin acceso.
-- [ ] Pasar cursos a todas las utilidades de recordatorios.
-- [ ] Validar correo, teléfono, cédula, nombres de etiquetas y duplicados de forma equivalente.
-- [ ] Corregir la vista previa de exportación en los breakpoints actuales.
-- [ ] Verificar los hallazgos existentes de `docs/checkGeneral.md` y cerrar solo los reproducidos y corregidos.
+Regla de vigencia confirmada por el propietario (2026-08-24): la aritmética
+actual es correcta — el día de ingreso cuenta como día 1 y `daysElapsed` mide
+días completos transcurridos; solo se corregirá documentación y comentarios.
+
+- [x] Calcular la fecha actual en tiempo de llamada, no al importar el módulo.
+- [x] Unificar la vigencia por curso en carga, filtros, recordatorios, exportaciones y revocación.
+- [x] Corregir clasificación de participantes sin acceso.
+- [x] Pasar cursos a todas las utilidades de recordatorios.
+- [x] Validar correo, teléfono, cédula, nombres de etiquetas y duplicados de forma equivalente.
+- [x] Corregir la vista previa de exportación en los breakpoints actuales.
+- [x] Verificar los hallazgos existentes de `docs/checkGeneral.md` y cerrar solo los reproducidos y corregidos.
 
 Validación de salida:
 
@@ -261,6 +275,13 @@ Validación de salida:
 | 2026-08-19 | Fase 3 | Transacción masiva y permisos RPC | La migración `20260819000000_harden_participant_transactions.sql` restringe ejecución a `authenticated`, endurece `search_path`, rechaza participantes inexistentes y vuelve atómica la actualización masiva de campos + cursos. |
 | 2026-08-19 | Fase 3 | Supabase local desde cero | `supabase start` aplicó todas las migraciones y `seed.sql`; una prueba con FK inválida confirmó rollback de pago/acceso y permisos `anon=false`, `authenticated=true`. |
 | 2026-08-19 | Fase 3 | Revisión independiente Claude Code/Sonnet | Dos subagentes detectaron el test desactualizado, la actualización masiva no atómica y la divergencia de `toggleActive`; los tres hallazgos fueron corregidos con cobertura. |
+| 2026-08-24 | Integración | Merge del PR #4 (`phase/3-validation`) en `main` | `main` actualizado y limpio; las correcciones de validación de Fase 3 quedan integradas. |
+| 2026-08-24 | Fase 4 | Línea base local en rama `phase/4-functional-fixes` | `npm run lint` pasa (0 errores, 14 advertencias); `npm test` pasa (51 pruebas Vitest, 10 archivos); `npm run build` pasa con advertencia de chunks grandes (App ~705 kB; ExcelJS diferido). `pytest` no ejecutable: `.venv` no existe localmente y debe recrearse desde `requirements-dev.txt` antes de validar backend. |
+| 2026-08-24 | Fase 4 | Fecha en tiempo de llamada y vigencia unificada (commits 2-3) | `TODAY` congelado eliminado; `classifyAccess` canónico adoptado por AccessView, Dashboard, Sidebar, ParticipantsView, Charts y pdf; revocación automática usa días por curso solo en cliente; correo calcula fechas con el curso real; duplicaciones de `getAccessDays` y literales 45 eliminadas. Suites: 55 pruebas Vitest, lint 0 errores/14 advertencias, build OK. |
+| 2026-08-24 | Fase 4 | Cursos en recordatorios (commit 4) | `RemindersView`, `AccessView` y `ProfileView` pasan `courses` a `buildReminderEmail`, `openEmailClient` y `copyEmailToClipboard`; los correos ya no muestran UUID de curso ni fechas con 45 días genéricos. La prueba automatizada del correo vive en `email.test.js`; el cableado de vistas se verifica por flujo visible. |
+| 2026-08-24 | Fase 4 | Validaciones equivalentes entre modos (commit 5) | Nuevo `utils/validators.js` (correo, teléfono, cédula, duplicados de correo y etiquetas) adoptado por `ImportView`, `ParticipantModal` (formato + duplicado con errores inline), `TagsView` (trim y duplicados insensibles a mayúsculas) y ambos adapters de etiquetas; el adapter local de participantes ahora normaliza cédula y trima texto igual que Supabase. El chequeo de correo duplicado queda en la capa compartida de UI, no en adapters. Suites: 78 pruebas Vitest (13 archivos), lint 0 errores/14 advertencias, build OK. |
+| 2026-08-24 | Fase 4 | Vista previa de exportación y cierre de checkGeneral (commit 6) | La tabla de vista previa usa `colgroup` con anchos fijos y la clase `tpreview` (`overflow-wrap:anywhere`) para que correo y cursos largos se envuelvan sin invadir columnas, en escritorio y en todos los breakpoints. La celda de cursos de la tabla de participantes dejó de truncar con puntos suspensivos y ahora continúa hacia abajo con la misma estrategia. Los seis hallazgos de `docs/checkGeneral.md` se reprodujeron antes y se verificó su corrección después: cinco ya resueltos por los commits 2-5 y este último en commit 6; el documento registra el estado final por hallazgo. Suites: 78 pruebas Vitest, lint 0 errores/14 advertencias, build OK. |
+| 2026-08-24 | Fase 4 | Alineación de insignia y PDF con la semántica canónica (commit 7) | Revisión previa al PR detectó que `TimerBadge` y el listado completo del PDF evaluaban `!access` antes que la fecha, contradiciendo a listas y métricas para un vencido con marca apagada. Ambos usan ahora la precedencia de `classifyAccess` (fecha manda, decisión D-007); se corrigió además una redacción errónea del cierre del hallazgo 2 en `docs/checkGeneral.md`. Suites: 78 pruebas Vitest, lint 0 errores/14 advertencias, build OK. |
 
 ## 7. Problemas y cambios respecto al plan
 
@@ -282,8 +303,12 @@ Validación de salida:
 
 ## 8. Siguiente paso ejecutable
 
-Publicar `phase/3-validation` mediante Pull Request y ejecutar sus checks remotos.
-Aplicar la migración de endurecimiento antes de desplegar el frontend. Tras la
-confirmación del propietario, iniciar la Fase 4 en una rama nueva desde `main`
-actualizado, comenzando por calcular la fecha actual en tiempo de llamada y
-unificar la vigencia por curso con pruebas de regresión.
+Ejecutar los commits de la Fase 4 en `phase/4-functional-fixes`, revisados por
+el propietario antes de cada commit, en este orden: (1) fecha en tiempo de
+llamada; (2) vigencia unificada por curso y clasificación de participantes sin
+acceso; (3) cursos en utilidades de recordatorio; (4) validaciones equivalentes
+local/Supabase; (5) vista previa de exportación y cierre de hallazgos de
+`docs/checkGeneral.md`. Al cierre: abrir un único Pull Request con lint, tests
+y build verdes, revisión independiente y confirmación del propietario. La
+migración `20260819000000_harden_participant_transactions.sql` debe aplicarse
+en Supabase remoto antes de desplegar el frontend resultante.

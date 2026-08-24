@@ -30,6 +30,10 @@ export function Badge({ type = 'gray', children }) {
 
 /**
  * Badge que muestra el estado de acceso según tiempo.
+ * La precedencia es la canónica de `classifyAccess`: la vigencia manda.
+ * Un vencido muestra "Expirado" aunque la marca `access` esté apagada
+ * (la revocación automática ya la apaga en cliente); "Sin acceso" queda
+ * para quien tiene la marca apagada con vigencia aún viva.
  * @param {string}  fecha  - ISO date string
  * @param {boolean} access - Si el participante tiene acceso activo
  * @param {number}  [days] - Días de acceso del curso (por defecto ACCESS_DAYS global)
@@ -43,8 +47,8 @@ function BadgeIcon({ name }) {
 }
 
 export function TimerBadge({ fecha, access, days = ACCESS_DAYS }) {
-  if (!access)                  return <Badge type="gray"><BadgeIcon name="lock"/>Sin acceso</Badge>
   if (isExpired(fecha, days))   return <Badge type="red"><BadgeIcon name="cancel"/>Expirado</Badge>
+  if (!access)                  return <Badge type="gray"><BadgeIcon name="lock"/>Sin acceso</Badge>
   if (isWarning(fecha, days))   return <Badge type="amber"><BadgeIcon name="schedule"/>{daysLeft(fecha, days)}d restantes</Badge>
   return <Badge type="black"><BadgeIcon name="check_circle"/>{daysLeft(fecha, days)}d restantes</Badge>
 }

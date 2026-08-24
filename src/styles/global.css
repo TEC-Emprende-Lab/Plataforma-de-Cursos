@@ -302,6 +302,14 @@ textarea:focus-visible {
 .ttable tr.row-exp  td { background:var(--row-exp-bg) }
 .ttable tr.row-warn td { background:var(--row-warn-bg) }
 
+/* Vista previa de exportación: con table-layout:fixed el ancho se reparte
+   entre columnas y los textos largos (correo sin espacios, nombres de
+   cursos) invaden la celda siguiente si no se permite cortar. */
+.ttable.tpreview th,
+.ttable.tpreview td {
+  overflow-wrap:anywhere;
+}
+
 /* ── Card-stack (alternativa móvil a tablas) ─────────────── */
 .card-stack { display:none; flex-direction:column; gap:10px }
 .pcard {

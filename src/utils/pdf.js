@@ -21,7 +21,7 @@
 import jsPDF       from 'jspdf'
 import autoTable   from 'jspdf-autotable'
 import {
-  daysLeft, isExpired, isWarning, todayISO, getAccessDays,
+  daysLeft, isExpired, todayISO, getAccessDays, classifyAccess,
 } from './time.js'
 
 // ---------- Paleta (sincronizada con global.css) ----------
@@ -305,8 +305,8 @@ function calcStats(participants, courses = []) {
     inactivos:  participants.filter(p => p.status === 'inactivo').length,
     conAcceso:  participants.filter(p => p.access).length,
     sinAcceso:  participants.filter(p => !p.access).length,
-    porVencer:  participants.filter(p => p.access && isWarning(p.fecha, getAccessDays(p, courses))).length,
-    expirados:  participants.filter(p => isExpired(p.fecha, getAccessDays(p, courses))).length,
+    porVencer:  participants.filter(p => classifyAccess(p, courses) === 'por_vencer').length,
+    expirados:  participants.filter(p => classifyAccess(p, courses) === 'expirado').length,
     pagosPend:  participants.filter(p => p.payment === 'pendiente').length,
     pagados:    participants.filter(p => p.payment === 'pagado').length,
   }
@@ -496,8 +496,8 @@ function renderAlerts(doc, pageW, participants, courses) {
     'Participantes que requieren seguimiento inmediato por parte del equipo.'
   )
 
-  const porVencer = participants.filter(p => p.access && isWarning(p.fecha, getAccessDays(p, courses)))
-  const expirados = participants.filter(p => isExpired(p.fecha, getAccessDays(p, courses)))
+  const porVencer = participants.filter(p => classifyAccess(p, courses) === 'por_vencer')
+  const expirados = participants.filter(p => classifyAccess(p, courses) === 'expirado')
   const pagosPend = participants.filter(p => p.payment === 'pendiente')
 
   const renderSub = (title, list, daysCol) => {
@@ -557,12 +557,13 @@ function renderList(doc, pageW, participants, courses) {
     `Inventario completo (${participants.length} registros) con datos de contacto e inscripciones.`
   )
 
-  const rows = participants.map(p => {
-    const cursos = (p.courses || []).map(id => safeText(shortName(id, courses))).join(', ') || '—'
-    const days = getAccessDays(p, courses)
-    const dias = !p.access ? 'Sin acceso'
-      : isExpired(p.fecha, days) ? 'Expirado'
-      : `${daysLeft(p.fecha, days)} d`
+    const rows = participants.map(p => {
+      const cursos = (p.courses || []).map(id => safeText(shortName(id, courses))).join(', ') || '—'
+      const days = getAccessDays(p, courses)
+      // Misma precedencia que classifyAccess/TimerBadge: la vigencia manda.
+      const dias = isExpired(p.fecha, days) ? 'Expirado'
+        : !p.access ? 'Sin acceso'
+        : `${daysLeft(p.fecha, days)} d`
     return [
       safeText(p.name),
       safeText(p.cedula) || '—',

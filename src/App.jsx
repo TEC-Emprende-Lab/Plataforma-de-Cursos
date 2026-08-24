@@ -68,14 +68,15 @@ function AuthenticatedApp({ user, onSignOut, theme, toggleTheme }) {
   const currentTitle = view.startsWith('profile_') ? 'Perfil' : (VIEW_TITLES[view] || 'TEC Emprende Lab')
 
   // ── Estado global ─────────────────────────────────────────
+  const { courses, addCourse, updateCourse, deleteCourse, toggleActive } = useCourses()
+
   const {
     participants, setParticipants,
     addParticipant, updateParticipant, deleteParticipant,
     toggleAccess, renewAccess, importParticipants, bulkUpdate,
-  } = useParticipants()
+  } = useParticipants(courses)
 
   const { tags, addTag, editTag, deleteTag }         = useTags()
-  const { courses, addCourse, updateCourse, deleteCourse, toggleActive } = useCourses()
 
   // ── Actualizar etiquetas de participante ──────────────────
   const updateParticipantTags = useCallback(async (pid, newTags) => {

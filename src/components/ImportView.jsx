@@ -8,8 +8,9 @@
 // ============================================================
 
 import { useState, useRef } from 'react'
-import { todayISO } from '../utils/time.js'
+import { todayISO, ACCESS_DAYS } from '../utils/time.js'
 import { normalizeCedula } from '../utils/cedula.js'
+import { EMAIL_RE, CEDULA_RE, PHONE_RE } from '../utils/validators.js'
 import { mapWithConcurrency } from '../utils/async.js'
 import { HACIENDA_API } from '../config.js'
 
@@ -21,10 +22,9 @@ import { HACIENDA_API } from '../config.js'
 //   - cédula: solo dígitos, 8-15 chars
 //   - teléfono: 8 dígitos (CR) o con guión (8888-8888)
 //   - nombre: el token restante más largo no numérico
-
-const EMAIL_RE   = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/
-const CEDULA_RE  = /^\d{8,15}$/
-const PHONE_RE   = /^\d{4}-?\d{4}$/
+//
+// Los formatos provienen de utils/validators.js (fuente compartida
+// con el modal y los adapters).
 
 function splitCsvLine(line) {
   // Sin soporte de comillas porque el formato del TEC no las usa.
@@ -373,7 +373,7 @@ export default function ImportView({ participants, courses = [], onImport, onBul
                   Acceso al contenido
                 </div>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13 }}>
-                  <Radio name="acc" value="on"   checked={bulkAccess === 'on'}   onChange={setBulkAccess} label="Activar (45 días)"/>
+                  <Radio name="acc" value="on"   checked={bulkAccess === 'on'}   onChange={setBulkAccess} label="Activar acceso"/>
                   <Radio name="acc" value="off"  checked={bulkAccess === 'off'}  onChange={setBulkAccess} label="Sin acceso"/>
                   <Radio name="acc" value="none" checked={bulkAccess === 'none'} onChange={setBulkAccess} label="Sin cambio"/>
                 </div>
@@ -387,7 +387,7 @@ export default function ImportView({ participants, courses = [], onImport, onBul
                       onChange={e => setBulkAccessFecha(e.target.value)}
                       style={{ maxWidth:180 }}/>
                     <span className="text-xs text-muted">
-                      Se contarán 45 días desde esta fecha.
+                      La vigencia se calcula por curso (máximo entre los cursos de cada participante; {ACCESS_DAYS} días si el curso no define).
                     </span>
                   </div>
                 )}

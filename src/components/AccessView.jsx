@@ -1,17 +1,18 @@
 // ============================================================
 //  AccessView.jsx — React JSX
 // ============================================================
-import { isExpired, isWarning, daysLeft, getAccessDays } from '../utils/time.js'
+import { classifyAccess, daysLeft, getAccessDays } from '../utils/time.js'
 
 import { StatCard, AccessBar, TimerBadge } from './UI.jsx'
 import { openEmailClient } from '../utils/email.js'
 
 export default function AccessView({ participants, courses = [], onToggleAccess, onRenew }) {
-  const expired   = participants.filter(p => isExpired(p.fecha, getAccessDays(p, courses)))
-  const warning   = participants.filter(p => p.access && isWarning(p.fecha, getAccessDays(p, courses)))
-  const sinAcceso = participants.filter(p => p.status === 'activo' && p.payment === 'pagado' && !p.access && !isExpired(p.fecha, getAccessDays(p, courses)))
-  const conAcceso = participants.filter(p => p.access)
-  const shortName = id => courses.find(c => c.id === id)?.short || id
+  const state      = p => classifyAccess(p, courses)
+  const expired    = participants.filter(p => state(p) === 'expirado')
+  const warning    = participants.filter(p => state(p) === 'por_vencer')
+  const sinAcceso  = participants.filter(p => p.status === 'activo' && p.payment === 'pagado' && state(p) === 'sin_acceso')
+  const conAcceso  = participants.filter(p => p.access)
+  const shortName  = id => courses.find(c => c.id === id)?.short || id
 
   return (
     <div>
@@ -53,7 +54,7 @@ export default function AccessView({ participants, courses = [], onToggleAccess,
                   <div style={{fontWeight:500,fontSize:13}}>{p.name} <span style={{fontSize:11,color:'var(--amber-d)'}}>· {daysLeft(p.fecha, days)}d</span></div>
                   <div style={{maxWidth:280,marginTop:4}}><AccessBar fecha={p.fecha} days={days}/></div>
                 </div>
-                <button className="btn btn-orange btn-sm" style={{marginLeft:'auto'}} onClick={() => openEmailClient(p)}><i className="ti ti-mail"/> Recordatorio</button>
+                <button className="btn btn-orange btn-sm" style={{marginLeft:'auto'}} onClick={() => openEmailClient(p, courses)}><i className="ti ti-mail"/> Recordatorio</button>
               </div>
             )
           })}
@@ -83,8 +84,9 @@ export default function AccessView({ participants, courses = [], onToggleAccess,
           <tbody>
             {participants.map(p => {
               const days = getAccessDays(p, courses)
+              const st   = state(p)
               return (
-                <tr key={p.id} className={isExpired(p.fecha,days)?'row-exp':isWarning(p.fecha,days)&&p.access?'row-warn':''}>
+                <tr key={p.id} className={st === 'expirado' ? 'row-exp' : st === 'por_vencer' ? 'row-warn' : ''}>
                   <td style={{fontWeight:500}}>{p.name}</td>
                   <td className="text-xs text-muted">{p.courses.map(shortName).join(', ')}</td>
                   <td>{p.access ? <AccessBar fecha={p.fecha} days={days}/> : <span className="text-sm text-muted">Sin acceso</span>}</td>
@@ -106,10 +108,9 @@ export default function AccessView({ participants, courses = [], onToggleAccess,
       <div className="card-stack">
         {participants.map(p => {
           const days = getAccessDays(p, courses)
-          const exp  = isExpired(p.fecha, days)
-          const warn = isWarning(p.fecha, days) && p.access
+          const st   = state(p)
           return (
-            <div key={p.id} className={`pcard ${exp ? 'row-exp' : warn ? 'row-warn' : ''}`}>
+            <div key={p.id} className={`pcard ${st === 'expirado' ? 'row-exp' : st === 'por_vencer' ? 'row-warn' : ''}`}>
               <div className="pcard-head">
                 <div className="pcard-id">
                   <div className="pname">{p.name}</div>

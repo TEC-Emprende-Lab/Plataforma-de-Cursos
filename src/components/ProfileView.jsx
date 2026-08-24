@@ -3,7 +3,7 @@
 //  Perfil individual. Muestra etiquetas y permite editarlas.
 // ============================================================
 
-import { isExpired, isWarning, daysLeft, daysElapsed, fmtDate, expiryDate, examDeadlineDate, needsExamReminder, getAccessDays } from '../utils/time.js'
+import { isExpired, isWarning, daysLeft, daysElapsed, fmtDate, expiryDate, examDeadlineDate, needsExamReminder, getAccessDays, ACCESS_DAYS } from '../utils/time.js'
 
 import { AccessBar, TimerBadge, Badge } from './UI.jsx'
 import DiagnosticPanel from './DiagnosticPanel.jsx'
@@ -131,7 +131,7 @@ export default function ProfileView({ id, participants, courses, tags, onToggleA
                 </div>
                 <div style={{ marginTop:4, display:'flex', gap:6, alignItems:'center' }}>
                   <span className="badge badge-gray">{c.code}</span>
-                  <span className="text-xs text-muted">{c.accessDays ?? 45}d de acceso</span>
+                  <span className="text-xs text-muted">{c.accessDays ?? ACCESS_DAYS}d de acceso</span>
                 </div>
               </div>
             )
@@ -197,7 +197,7 @@ export default function ProfileView({ id, participants, courses, tags, onToggleA
           <p className="text-sm text-muted" style={{ marginBottom:12 }}>
             Prueba antes del <b>{examDeadlineDate(p.fecha, days)}</b> · Acceso expira el <b>{expiryDate(p.fecha, days)}</b>
           </p>
-          <button className="btn btn-orange btn-sm" onClick={() => openEmailClient(p)}>
+          <button className="btn btn-orange btn-sm" onClick={() => openEmailClient(p, courses)}>
             <i className="ti ti-mail-forward"/> Abrir correo recordatorio
           </button>
         </div>

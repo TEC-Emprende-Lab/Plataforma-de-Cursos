@@ -8,11 +8,12 @@ import { Modal } from './UI.jsx'
 import {
   COURSE_TYPES, COURSE_PLATFORMS, COURSE_MODALITIES, fmtPrice,
 } from '../data/courses.js'
+import { ACCESS_DAYS } from '../utils/time.js'
 
 const EMPTY = {
   name:'', short:'', type:'curso', platform:'TEC Digital',
   start:'', end:'', capacity:'30', price:'', modalidad:'Asincrónico',
-  code:'', description:'', active:true, accessDays:'45', certEnabled:false,
+  code:'', description:'', active:true, accessDays:String(ACCESS_DAYS), certEnabled:false,
 }
 
 function genCode(name, type) {
@@ -25,7 +26,7 @@ function genCode(name, type) {
 }
 
 export default function CourseModal({ course, onSave, onClose }) {
-  const [form, setForm]     = useState(course ? { ...course, capacity: String(course.capacity), accessDays: String(course.accessDays ?? 45), certEnabled: course.certEnabled ?? false } : { ...EMPTY })
+  const [form, setForm]     = useState(course ? { ...course, capacity: String(course.capacity), accessDays: String(course.accessDays ?? ACCESS_DAYS), certEnabled: course.certEnabled ?? false } : { ...EMPTY })
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
 
@@ -50,7 +51,7 @@ export default function CourseModal({ course, onSave, onClose }) {
         short:    form.short.trim() || form.name.slice(0, 24),
         code:     form.code.trim()  || genCode(form.name, form.type),
         capacity: Number(form.capacity) || 30,
-        accessDays: Number(form.accessDays) || 45,
+        accessDays: Number(form.accessDays) || ACCESS_DAYS,
       })
       if (!result?.error) onClose()
     } finally {
@@ -143,7 +144,7 @@ export default function CourseModal({ course, onSave, onClose }) {
           <label className="text-sm text-muted" style={{ display:'block', marginBottom:4 }}>Días de acceso</label>
           <input className="finput" type="number" min="1" max="365" value={form.accessDays}
             onChange={e => f('accessDays', e.target.value)}
-            placeholder="45"/>
+            placeholder={String(ACCESS_DAYS)}/>
           {form.accessDays && (
             <div style={{ fontSize:10, color:'var(--gray)', marginTop:2 }}>
               {Number(form.accessDays) >= 7 && Number(form.accessDays) % 7 === 0

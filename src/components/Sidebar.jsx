@@ -2,7 +2,7 @@
 //  Sidebar.jsx — React JSX
 // ============================================================
 
-import { isExpired, needsExamReminder, getAccessDays } from '../utils/time.js'
+import { classifyAccess, needsExamReminder, getAccessDays } from '../utils/time.js'
 import Logo from './Logo.jsx'
 
 export const NAV = [
@@ -25,7 +25,7 @@ export const NAV = [
 ]
 
 export default function Sidebar({ view, setView, participants, courses = [], userEmail, onSignOut, open, onClose, theme, onToggleTheme }) {
-  const expCount    = participants.filter(p => isExpired(p.fecha, getAccessDays(p, courses))).length
+  const expCount    = participants.filter(p => classifyAccess(p, courses) === 'expirado').length
   const remindCount = participants.filter(p => p.access && needsExamReminder(p.fecha, getAccessDays(p, courses))).length
   const activeBase  = view.startsWith('profile_') ? 'participants' : view
   const isDark      = theme === 'dark'

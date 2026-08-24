@@ -1,12 +1,14 @@
 # Contexto técnico persistente de la codebase
 
 > Mapa de orientación rápida. No reemplaza al código ni a `ROADMAP.md`.
-> Última actualización: 2026-08-19.
+> Última actualización: 2026-08-24.
 
-Estado operativo: Fases 0 a 3 completadas; Fases 2 y 3 ya fueron integradas en
-`main`. La rama `phase/3-validation` contiene correcciones posteriores al merge
-y requiere Pull Request, checks remotos y confirmación del propietario. La
-siguiente fase de implementación es la Fase 4.
+Estado operativo: Fases 0 a 3 completadas e integradas en `main` (PR #2, #3 y
+#4). La Fase 4 está EN CURSO en la rama `phase/4-functional-fixes`: corrección
+funcional respaldada por pruebas, entregada como un único Pull Request con
+commits revisados por el propietario. Regla de vigencia confirmada: el día de
+ingreso cuenta como día 1; solo se corrige documentación, no la aritmética. La
+revocación automática seguirá siendo solo de estado en cliente.
 
 ## Propósito del sistema
 
@@ -52,7 +54,7 @@ src/
   components/              Vistas y componentes React.
   hooks/                   Estado y mutaciones de datos.
   lib/supabase.js          Singleton Supabase y retry de PGRST303.
-  utils/                   Fechas, cédulas, correo, PDF, Excel/CSV y concurrencia.
+  utils/                   Fechas, cédulas, correo, PDF, Excel/CSV, concurrencia y validaciones de formulario (`validators.js`, fuente única de formatos para modal, CSV y adapters).
   data/                    Constantes y datos iniciales del modo local.
 backend/
   app.py                   API Flask monolítica actual.
@@ -68,7 +70,10 @@ supabase/
                             La migración 20260819000000 endurece y amplía las RPC de participantes.
   seed.sql                 Datos iniciales; no ejecutar indiscriminadamente en producción.
 public/templates/          Copias estáticas de plantillas para preview frontend.
-docs/                      Diseño, revisión técnica histórica y capturas.
+docs/                      Documentación detallada: ARQUITECTURA.md (capas y contratos),
+                           BASE-DE-DATOS.md (esquema y migraciones), OPERACION.md
+                           (uso, deploy, troubleshooting) más revisiones históricas.
+                           El README conserva solo lo esencial y enlaza aquí.
 .github/workflows/         Análisis de calidad y seguridad en GitHub Actions.
 ```
 
@@ -154,7 +159,7 @@ Metadata en `svg_templates`, archivo en bucket `certificate-templates`, o SVG in
 ## Hooks y responsabilidades
 
 - `useAuth`: sesión, login y logout mediante el adapter seleccionado.
-- `useParticipants`: estado y mutaciones; delega persistencia y relaciones N:N al adapter local o Supabase.
+- `useParticipants`: estado y mutaciones; delega persistencia y relaciones N:N al adapter local o Supabase. Recibe `courses` para la revocación automática por curso, que ocurre solo en memoria.
 - `useCourses`: estado CRUD; la adaptación DB ↔ UI vive en los adapters.
 - `useTags`: estado CRUD sobre el adapter seleccionado.
 - `useTemplates`: metadata y contenido SVG mediante adapters; Supabase conserva las escrituras confiables a través de Flask.
@@ -249,9 +254,11 @@ Nunca registrar claves, JWT, cédulas completas en logs de depuración ni conten
 - fechas de expiración y prueba;
 - resolución de `accessDays` según cursos.
 
-Regla vigente: si hay varios cursos, se usa el máximo `accessDays`; fallback global: 45 días.
+Regla vigente: si hay varios cursos, se usa el máximo `accessDays`; fallback global: 45 días. El día de ingreso cuenta como día 1 de vigencia; `daysElapsed` mide días completos transcurridos y "hoy" se calcula en cada llamada.
 
-Deuda conocida: `TODAY` queda congelado al importar el módulo y la revocación inicial en `useParticipants` no usa los días por curso.
+`classifyAccess(participant, courses)` es la clasificación canónica de estados (`vigente`, `por_vencer`, `expirado`, `sin_acceso`) y debe usarse en todas las vistas, filtros, badges y PDF. Precedencia (decisión D-007 del ROADMAP): la fecha manda — `'expirado'` aplica aunque `p.access` esté apagado, porque la revocación automática ya lo hace en cliente; ningún componente debe evaluar `!access` antes de la vigencia (`TimerBadge` y el listado del PDF siguen esta regla). `applyAutoRevoke(participants, courses)` revoca vencidos según los días por curso, solo en estado cliente (no persiste) y no hace nada sin cursos cargados.
+
+Deuda resuelta en Fase 4: `TODAY` ya no queda congelado al importar y la revocación automática sí usa los días por curso.
 
 ## Riesgos que un agente debe conocer antes de editar
 
@@ -287,6 +294,8 @@ npm run lint      # 0 errores; 14 advertencias conocidas
 npm run build     # build de producción
 
 cd backend
+# Recrear el entorno si no existe .venv en la raíz:
+python -m venv ../.venv
 ../.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
 ../.venv/Scripts/python.exe -m pytest   # 104 pruebas backend
 ```

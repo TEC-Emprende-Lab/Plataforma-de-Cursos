@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState }     from 'react'
-import { isExpired, isWarning, daysLeft, getAccessDays } from '../utils/time.js'
+import { classifyAccess, daysLeft, getAccessDays } from '../utils/time.js'
 import { mapWithConcurrency } from '../utils/async.js'
 import { normalizeCedula } from '../utils/cedula.js'
 import { AccessBar, Avatar, ConfirmDialog }  from './UI.jsx'
@@ -135,19 +135,19 @@ export default function ParticipantsView({
 
   const filtered = participants
     .filter(p => {
-      const days = getAccessDays(p, courses)
       const q = search.toLowerCase()
       const matchQ = !q || p.name.toLowerCase().includes(q)
         || p.email.toLowerCase().includes(q) || p.phone.includes(q)
       const matchC = filterCourse === 'all' || p.courses.includes(filterCourse)
       const matchT = filterTag    === 'all' || (p.tags||[]).includes(filterTag)
+      const st = classifyAccess(p, courses)
       const matchS = filterStatus === 'all'
         || (filterStatus === 'activo'    && p.status === 'activo')
         || (filterStatus === 'inactivo'  && p.status === 'inactivo')
         || (filterStatus === 'acceso'    && p.access)
         || (filterStatus === 'sinacceso' && !p.access)
-        || (filterStatus === 'expirado'  && isExpired(p.fecha, days))
-        || (filterStatus === 'warning'   && isWarning(p.fecha, days))
+        || (filterStatus === 'expirado'  && st === 'expirado')
+        || (filterStatus === 'warning'   && st === 'por_vencer')
       return matchQ && matchC && matchT && matchS
     })
     .sort((a, b) => {
@@ -173,13 +173,14 @@ export default function ParticipantsView({
   // Métricas reales para la fila inferior
   const totalActivos = participants.filter(p => p.status === 'activo').length
   const conAcceso    = participants.filter(p => p.access).length
-  const porVencer    = participants.filter(p => p.access && isWarning(p.fecha, getAccessDays(p, courses))).length
+  const porVencer    = participants.filter(p => classifyAccess(p, courses) === 'por_vencer').length
 
   return (
     <div>
       {modalOpen && (
         <ParticipantModal
           participant={editTarget}
+          participants={participants}
           courses={courses}
           tags={tags}
           onSave={handleSave}
@@ -404,14 +405,13 @@ export default function ParticipantsView({
           <tbody>
             {filtered.length ? filtered.map(p => {
               const days = getAccessDays(p, courses)
-              const exp   = p.access && isExpired(p.fecha, days)
-              const warn  = p.access && isWarning(p.fecha, days)
+              const st    = classifyAccess(p, courses)
               const ptags = tags.filter(t => (p.tags||[]).includes(t.id))
               return (
-                <tr key={p.id} className={exp ? 'row-exp' : warn ? 'row-warn' : ''}>
+                <tr key={p.id} className={st === 'expirado' ? 'row-exp' : st === 'por_vencer' ? 'row-warn' : ''}>
                   <td>
                     <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-                      <Avatar name={p.name} variant={exp ? 'red' : warn ? 'warn' : 'cream'}/>
+                      <Avatar name={p.name} variant={st === 'expirado' ? 'red' : st === 'por_vencer' ? 'warn' : 'cream'}/>
                       <div style={{ minWidth:0 }}>
                         <div style={{ fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                           {p.name}
@@ -422,7 +422,7 @@ export default function ParticipantsView({
                       </div>
                     </div>
                   </td>
-                  <td className="text-xs text-muted" style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                  <td className="text-xs text-muted" style={{ overflowWrap:'anywhere' }}>
                     {p.courses.map(shortName).join(', ')}
                   </td>
                   <td>
@@ -469,8 +469,9 @@ export default function ParticipantsView({
       <div className="card-stack">
         {filtered.length ? filtered.map(p => {
           const days = getAccessDays(p, courses)
-          const exp   = p.access && isExpired(p.fecha, days)
-          const warn  = p.access && isWarning(p.fecha, days)
+          const st    = classifyAccess(p, courses)
+          const exp   = st === 'expirado'
+          const warn  = st === 'por_vencer'
           const ptags = tags.filter(t => (p.tags||[]).includes(t.id))
           return (
             <div key={p.id} className={`pcard ${exp ? 'row-exp' : warn ? 'row-warn' : ''}`}>

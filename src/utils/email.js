@@ -4,14 +4,16 @@
 //  courses se pasa como parámetro para usar los datos dinámicos.
 // ============================================================
 
-import { expiryDate, examDeadlineDate } from './time.js'
+import { expiryDate, examDeadlineDate, getAccessDays } from './time.js'
 
 export function buildReminderEmail(participant, courses = []) {
   const names   = participant.courses
     .map(id => courses.find(c => c.id === id)?.name || id)
     .join(', ')
-  const examDate = examDeadlineDate(participant.fecha)
-  const expDate  = expiryDate(participant.fecha)
+  // La vigencia del correo respeta los días de acceso reales de los cursos
+  const days     = getAccessDays(participant, courses)
+  const examDate = examDeadlineDate(participant.fecha, days)
+  const expDate  = expiryDate(participant.fecha, days)
 
   return {
     to:      participant.email,

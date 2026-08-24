@@ -35,11 +35,11 @@ function fromDb(row) {
 
 function baseFromForm(form) {
   return {
-    name: form.name ?? null,
+    name: String(form.name ?? '').trim() || null,
     cedula:
       normalizeCedula(form.cedula) || null,
-    email: form.email ?? null,
-    phone: form.phone ?? null,
+    email: String(form.email ?? '').trim() || null,
+    phone: String(form.phone ?? '').trim() || null,
     status:
       form.status ?? 'activo',
     payment:

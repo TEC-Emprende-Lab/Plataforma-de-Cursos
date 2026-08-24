@@ -3,18 +3,26 @@
 //  Funciones puras de cálculo de tiempo y fechas.
 //  No dependen de React ni de ningún otro módulo.
 //
-//  Regla: el día de ingreso cuenta como día 1.
+//  Regla: el día de ingreso cuenta como día 1 de vigencia.
+//  `daysElapsed` mide días completos transcurridos desde el
+//  ingreso: retorna 0 el mismo día del ingreso y el acceso
+//  expira exactamente al cumplirse `days` días naturales.
 //  Si la fecha de ingreso es futura, se trata como si fuera hoy.
 //  Todas las funciones aceptan un segundo parámetro opcional
 //  `days` (días de acceso del curso). Si no se pasa, se usa
 //  el valor global ACCESS_DAYS como respaldo.
+//
+//  "Hoy" se calcula en cada llamada para que una sesión abierta
+//  al cruzar la medianoche refleje la fecha real.
 // ============================================================
 
 export { ACCESS_DAYS, WARN_DAYS, EXAM_WARN } from '../data/constants.js'
 import { ACCESS_DAYS, WARN_DAYS, EXAM_WARN } from '../data/constants.js'
 
-const _now = new Date()
-const TODAY = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate())
+function todayAtMidnight() {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+}
 
 function parseLocal(fechaStr) {
   const [y, m, d] = fechaStr.split('-').map(Number)
@@ -22,12 +30,13 @@ function parseLocal(fechaStr) {
 }
 
 /**
- * Días transcurridos desde la fecha de ingreso (mín. 0).
+ * Días completos transcurridos desde la fecha de ingreso (mín. 0).
+ * El mismo día del ingreso retorna 0.
  * Si la fecha es futura, retorna 0.
  * @param {string} fechaStr - Formato ISO 'YYYY-MM-DD'
  */
 export function daysElapsed(fechaStr) {
-  return Math.max(0, Math.round((TODAY - parseLocal(fechaStr)) / 86_400_000))
+  return Math.max(0, Math.round((todayAtMidnight() - parseLocal(fechaStr)) / 86_400_000))
 }
 
 /**
@@ -129,4 +138,50 @@ export function getAccessDays(participant, courses = []) {
   const enrolled = courses.filter(c => participant.courses.includes(c.id))
   if (!enrolled.length) return ACCESS_DAYS
   return Math.max(...enrolled.map(c => Number(c.accessDays) || ACCESS_DAYS))
+}
+
+/**
+ * Clasifica el estado de acceso de un participante de forma única
+ * para todas las vistas (Control de Accesos, Dashboard, filtros,
+ * sidebar, gráficos y PDF):
+ *
+ * - 'expirado':   su período ya venció, independientemente de la
+ *                 marca manual/automática de acceso.
+ * - 'por_vencer': tiene acceso y quedan ≤ WARN_DAYS días.
+ * - 'vigente':    tiene acceso con más de WARN_DAYS días restantes.
+ * - 'sin_acceso': no tiene acceso habilitado y su período aún no vence.
+ *
+ * @param {object} participant
+ * @param {Array}  courses
+ * @returns {'expirado'|'por_vencer'|'vigente'|'sin_acceso'}
+ */
+export function classifyAccess(participant, courses = []) {
+  const days = getAccessDays(participant, courses)
+  if (isExpired(participant.fecha, days)) return 'expirado'
+  if (!participant.access) return 'sin_acceso'
+  return isWarning(participant.fecha, days) ? 'por_vencer' : 'vigente'
+}
+
+/**
+ * Revoca el acceso de los participantes cuyo período venció según
+ * los días de acceso reales de sus cursos. Opera únicamente sobre
+ * la lista en memoria: no persiste ningún cambio en la base de
+ * datos ni en localStorage. Sin cursos cargados no revoca a nadie,
+ * porque no puede resolver la vigencia real.
+ *
+ * @param {Array} participants
+ * @param {Array} courses
+ * @returns {Array} nueva lista; devuelve la misma referencia si no hay cambios
+ */
+export function applyAutoRevoke(participants, courses = []) {
+  if (!courses.length || !participants?.length) return participants
+  let changed = false
+  const next = participants.map(p => {
+    if (!p.access) return p
+    const days = getAccessDays(p, courses)
+    if (!isExpired(p.fecha, days)) return p
+    changed = true
+    return { ...p, access: false }
+  })
+  return changed ? next : participants
 }

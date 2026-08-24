@@ -28,7 +28,7 @@ import {
 } from 'react'
 
 import { storageMode } from '../lib/supabase.js'
-import { isExpired } from '../utils/time.js'
+import { applyAutoRevoke } from '../utils/time.js'
 
 import {
   participantsLocalAdapter,
@@ -76,22 +76,16 @@ function normalizeError(
   }
 }
 
-function applyAutoRevoke(list) {
-  return list.map(p =>
-    p.access && isExpired(p.fecha)
-      ? {
-          ...p,
-          access: false,
-        }
-      : p
-  )
-}
-
 // ============================================================
 // Hook
+//
+// `courses` se inyecta para que la revocación automática resuelva
+// la vigencia con los días de acceso reales de los cursos de cada
+// participante. La revocación es solo de estado en cliente: no
+// persiste cambios en la base de datos ni en localStorage.
 // ============================================================
 
-export function useParticipants() {
+export function useParticipants(courses = []) {
 
   const [participants, setParticipants] =
     useState([])
@@ -188,9 +182,7 @@ export function useParticipants() {
           }
 
           setParticipants(
-            applyAutoRevoke(
-              result || []
-            )
+            result || []
           )
 
         } catch (error) {
@@ -224,6 +216,23 @@ export function useParticipants() {
       cancelled = true
     }
   }, [])
+
+  // ==========================================================
+  // Revocación automática de vigencias vencidas
+  //
+  // Se aplica cuando los cursos están disponibles para respetar
+  // los días de acceso por curso. Es idempotente, no persiste y
+  // evita renders extra devolviendo la misma referencia cuando
+  // nada cambia.
+  // ==========================================================
+
+  useEffect(() => {
+    if (!courses.length) return
+
+    setParticipants(prev =>
+      applyAutoRevoke(prev, courses)
+    )
+  }, [courses])
 
   // ==========================================================
   // Agregar
