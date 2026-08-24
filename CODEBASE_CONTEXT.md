@@ -256,7 +256,7 @@ Nunca registrar claves, JWT, cédulas completas en logs de depuración ni conten
 
 Regla vigente: si hay varios cursos, se usa el máximo `accessDays`; fallback global: 45 días. El día de ingreso cuenta como día 1 de vigencia; `daysElapsed` mide días completos transcurridos y "hoy" se calcula en cada llamada.
 
-`classifyAccess(participant, courses)` es la clasificación canónica de estados (`vigente`, `por_vencer`, `expirado`, `sin_acceso`) y debe usarse en todas las vistas, filtros, badges y PDF. `applyAutoRevoke(participants, courses)` revoca vencidos según los días por curso, solo en estado cliente (no persiste) y no hace nada sin cursos cargados.
+`classifyAccess(participant, courses)` es la clasificación canónica de estados (`vigente`, `por_vencer`, `expirado`, `sin_acceso`) y debe usarse en todas las vistas, filtros, badges y PDF. Precedencia (decisión D-007 del ROADMAP): la fecha manda — `'expirado'` aplica aunque `p.access` esté apagado, porque la revocación automática ya lo hace en cliente; ningún componente debe evaluar `!access` antes de la vigencia (`TimerBadge` y el listado del PDF siguen esta regla). `applyAutoRevoke(participants, courses)` revoca vencidos según los días por curso, solo en estado cliente (no persiste) y no hace nada sin cursos cargados.
 
 Deuda resuelta en Fase 4: `TODAY` ya no queda congelado al importar y la revocación automática sí usa los días por curso.
 

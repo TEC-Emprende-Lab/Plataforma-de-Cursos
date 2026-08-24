@@ -557,12 +557,13 @@ function renderList(doc, pageW, participants, courses) {
     `Inventario completo (${participants.length} registros) con datos de contacto e inscripciones.`
   )
 
-  const rows = participants.map(p => {
-    const cursos = (p.courses || []).map(id => safeText(shortName(id, courses))).join(', ') || '—'
-    const days = getAccessDays(p, courses)
-    const dias = !p.access ? 'Sin acceso'
-      : isExpired(p.fecha, days) ? 'Expirado'
-      : `${daysLeft(p.fecha, days)} d`
+    const rows = participants.map(p => {
+      const cursos = (p.courses || []).map(id => safeText(shortName(id, courses))).join(', ') || '—'
+      const days = getAccessDays(p, courses)
+      // Misma precedencia que classifyAccess/TimerBadge: la vigencia manda.
+      const dias = isExpired(p.fecha, days) ? 'Expirado'
+        : !p.access ? 'Sin acceso'
+        : `${daysLeft(p.fecha, days)} d`
     return [
       safeText(p.name),
       safeText(p.cedula) || '—',

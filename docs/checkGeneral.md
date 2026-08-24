@@ -39,7 +39,7 @@
 
 ### [Media] Un participante sin acceso puede aparecer como expirado
 
-**Estado:** Corregido — commit `fix: unificar vigencia por curso y clasificacion de participantes sin acceso`. La clasificación canónica `classifyAccess` distingue `'expirado'` (requiere `p.access` activo) de `'sin_acceso'`; AccessView, ParticipantsView, Dashboard, Sidebar, Charts y pdf la usan para listas, filtros y métricas. Verificado con las pruebas de clasificación en `src/utils/time.test.js`.
+**Estado:** Corregido — commit `fix: unificar vigencia por curso y clasificacion de participantes sin acceso`, con alineación de insignia y PDF en `fix: alinear insignia de acceso con la clasificacion canonica de vigencia`. La clasificación canónica `classifyAccess` da prioridad a la fecha: `'expirado'` cuando el período venció, **independientemente de la marca `p.access`**; `'sin_acceso'` queda para quien tiene acceso apagado con vigencia aún viva. Esta precedencia es intencional: la revocación automática ya apaga `access` en cliente para todos los vencidos, por lo que exigir `access` activo haría desaparecer el estado expirado tras cada recarga. En consecuencia, el caso del procedimiento original (Sin acceso + fecha >45 días) se clasifica como expirado **por diseño** y recibe la acción Renovar. El defecto real que se corrigió es la ambigüedad anterior, donde no existían estados diferenciados. Verificado con las pruebas de clasificación en `src/utils/time.test.js`; `TimerBadge` y el listado del PDF usan ahora la misma precedencia que las listas y métricas.
 
 **Ubicación:**
 
