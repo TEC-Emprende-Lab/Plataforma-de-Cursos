@@ -180,6 +180,7 @@ export default function ParticipantsView({
       {modalOpen && (
         <ParticipantModal
           participant={editTarget}
+          participants={participants}
           courses={courses}
           tags={tags}
           onSave={handleSave}

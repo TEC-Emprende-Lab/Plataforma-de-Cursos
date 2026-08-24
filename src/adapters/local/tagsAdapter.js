@@ -7,6 +7,7 @@ import {
   DEFAULT_TAGS,
   TAGS_STORAGE_KEY,
 } from '../../data/tags.js'
+import { validateTag } from '../../utils/validators.js'
 
 // ============================================================
 // Helpers
@@ -89,9 +90,14 @@ export const tagsLocalAdapter = {
       return tags
     }
 
+    const check = validateTag(name, tags)
+    if (check.error) {
+      return check
+    }
+
     const tag = {
       id: 't' + Date.now(),
-      name,
+      name: check.name,
       color,
     }
 
@@ -129,9 +135,14 @@ export const tagsLocalAdapter = {
       )
     }
 
+    const check = validateTag(name, tags, id)
+    if (check.error) {
+      return check
+    }
+
     const updatedTag = {
       ...currentTag,
-      name,
+      name: check.name,
       color,
     }
 

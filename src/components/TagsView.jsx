@@ -6,6 +6,7 @@
 
 import { useState } from 'react'
 import { getTagColor } from '../data/tags.js'
+import { validateTag } from '../utils/validators.js'
 import { TagPill }     from './TagPill.jsx'
 import { ColorPicker } from './ColorPicker.jsx'
 import { ConfirmDialog } from './UI.jsx'
@@ -19,24 +20,40 @@ export default function TagsView({ tags, participants, onAdd, onEdit, onDelete }
   const [confirmTarget, setConfirmTarget] = useState(null)   // etiqueta a eliminar
   const [creating, setCreating] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
+  const [createError, setCreateError]   = useState('')
+  const [editError,   setEditError]     = useState('')
 
-  const startEdit = t => { setEditId(t.id); setEditName(t.name); setEditColor(t.color) }
+  const startEdit = t => { setEditId(t.id); setEditName(t.name); setEditColor(t.color); setEditError('') }
   const saveEdit = async () => {
     if (savingEdit) return
+    setEditError('')
+    const check = validateTag(editName, tags, editId)
+    if (check.error) {
+      setEditError(check.error.message)
+      return
+    }
     setSavingEdit(true)
     try {
-      const result = await onEdit(editId, editName, editColor)
+      const result = await onEdit(editId, check.name, editColor)
       if (!result?.error) setEditId(null)
+      else setEditError(result.error.message || 'No se pudo guardar.')
     } finally {
       setSavingEdit(false)
     }
   }
   const createTag = async () => {
-    if (!newName.trim() || creating) return
+    if (creating) return
+    setCreateError('')
+    const check = validateTag(newName, tags)
+    if (check.error) {
+      setCreateError(check.error.message)
+      return
+    }
     setCreating(true)
     try {
-      const result = await onAdd(newName.trim(), newColor)
+      const result = await onAdd(check.name, newColor)
       if (!result?.error) setNewName('')
+      else setCreateError(result.error.message || 'No se pudo crear.')
     } finally {
       setCreating(false)
     }
@@ -94,10 +111,12 @@ export default function TagsView({ tags, participants, onAdd, onEdit, onDelete }
         <div className="filters-row" style={{ display:'flex', gap:12, alignItems:'flex-end', flexWrap:'wrap' }}>
           <div style={{ flex:1, minWidth:180 }}>
             <label className="text-sm text-muted" style={{ display:'block', marginBottom:4 }}>Nombre</label>
-            <input className="finput" value={newName} onChange={e => setNewName(e.target.value)}
+            <input className="finput" value={newName} onChange={e => { setNewName(e.target.value); if (createError) setCreateError('') }}
               disabled={creating}
               placeholder="ej. Becado, VIP, Empresa..."
+              aria-invalid={!!createError}
               onKeyDown={e => { if (e.key === 'Enter') createTag() }}/>
+            {createError && <span style={{ fontSize:11, color:'var(--orange-d)' }}>{createError}</span>}
           </div>
           <div>
             <label className="text-sm text-muted" style={{ display:'block', marginBottom:4 }}>Color</label>
@@ -136,8 +155,12 @@ export default function TagsView({ tags, participants, onAdd, onEdit, onDelete }
               <div key={t.id} className="card" style={{ padding:14, borderLeft:`3px solid ${c.dot}` }}>
                 {editId === t.id ? (
                   <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                    <input value={editName} onChange={e => setEditName(e.target.value)}
-                      className="finput" autoFocus/>
+                    <div>
+                      <input value={editName} onChange={e => { setEditName(e.target.value); if (editError) setEditError('') }}
+                        className="finput" autoFocus
+                        aria-invalid={!!editError}/>
+                      {editError && <span style={{ fontSize:11, color:'var(--orange-d)' }}>{editError}</span>}
+                    </div>
                     <ColorPicker selected={editColor} onChange={setEditColor}/>
                     <TagPill tag={{ id:'ep', name:editName, color:editColor }}/>
                     <div style={{ display:'flex', gap:6 }}>

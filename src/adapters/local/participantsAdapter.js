@@ -18,6 +18,7 @@ import {
 } from '../../data/constants.js'
 
 import { todayISO } from '../../utils/time.js'
+import { normalizeCedula } from '../../utils/cedula.js'
 
 // ============================================================
 // Helpers
@@ -29,6 +30,21 @@ function createError(message, code) {
       message,
       code,
     },
+  }
+}
+
+/**
+ * Normaliza los campos de texto del formulario igual que el
+ * adapter de Supabase: trim en nombre/correo/teléfono y cédula
+ * en forma canónica. Garantiza paridad entre modos.
+ */
+function normalizeForm(form) {
+  return {
+    ...form,
+    name: String(form.name ?? '').trim(),
+    email: String(form.email ?? '').trim(),
+    phone: String(form.phone ?? '').trim(),
+    cedula: normalizeCedula(form.cedula) || '',
   }
 }
 
@@ -104,7 +120,7 @@ export const participantsLocalAdapter = {
     const participant = {
       id:
         'p' + Date.now(),
-      ...form,
+      ...normalizeForm(form),
       tags:
         form.tags || [],
       courses:
@@ -154,7 +170,7 @@ export const participantsLocalAdapter = {
 
     const updatedParticipant = {
       ...currentParticipant,
-      ...form,
+      ...normalizeForm(form),
       tags:
         form.tags ||
         currentParticipant.tags ||

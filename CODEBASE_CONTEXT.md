@@ -54,7 +54,7 @@ src/
   components/              Vistas y componentes React.
   hooks/                   Estado y mutaciones de datos.
   lib/supabase.js          Singleton Supabase y retry de PGRST303.
-  utils/                   Fechas, cédulas, correo, PDF, Excel/CSV y concurrencia.
+  utils/                   Fechas, cédulas, correo, PDF, Excel/CSV, concurrencia y validaciones de formulario (`validators.js`, fuente única de formatos para modal, CSV y adapters).
   data/                    Constantes y datos iniciales del modo local.
 backend/
   app.py                   API Flask monolítica actual.

@@ -8,6 +8,7 @@ import { Modal }          from './UI.jsx'
 import { AccessBar }      from './UI.jsx'
 import { TagSelector }    from './TagSelector.jsx'
 import { todayISO, ACCESS_DAYS, getAccessDays } from '../utils/time.js'
+import { isValidEmail, isValidPhone, isValidCedula, findDuplicateByEmail } from '../utils/validators.js'
 
 const EMPTY_FORM = {
   name:'', cedula:'', email:'', phone:'',
@@ -15,7 +16,7 @@ const EMPTY_FORM = {
   fecha:todayISO(), courses:[], tags:[], notes:'',
 }
 
-export default function ParticipantModal({ participant, courses, tags, onSave, onClose }) {
+export default function ParticipantModal({ participant, participants = [], courses, tags, onSave, onClose }) {
   const [form, setForm]     = useState(participant ? { ...participant } : { ...EMPTY_FORM })
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
@@ -37,6 +38,15 @@ export default function ParticipantModal({ participant, courses, tags, onSave, o
     const e = {}
     if (!form.name.trim())  e.name  = 'Requerido'
     if (!form.email.trim()) e.email = 'Requerido'
+    else if (!isValidEmail(form.email)) e.email = 'Formato inválido'
+    else {
+      const dup = findDuplicateByEmail(form.email, participants, participant?.id)
+      if (dup) e.email = `Ya existe: ${dup.name}`
+    }
+    if (String(form.phone || '').trim() && !isValidPhone(form.phone))
+      e.phone = 'Usá 8 dígitos (ej. 8888-8888)'
+    if (String(form.cedula || '').trim() && !isValidCedula(form.cedula))
+      e.cedula = 'Solo dígitos, entre 8 y 15'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -80,14 +90,20 @@ export default function ParticipantModal({ participant, courses, tags, onSave, o
           <label className="text-sm text-muted" htmlFor="pm-cedula" style={{ display:'block', marginBottom:4 }}>Cédula</label>
           <input id="pm-cedula" className="finput" value={form.cedula || ''}
             onChange={e => f('cedula', e.target.value)}
-            inputMode="numeric" placeholder="1-0234-0567"/>
-          <p className="text-xs text-muted" style={{ marginTop:4 }}>
-            Escríbela completa, <strong>con todos los ceros</strong> (ej: 1-0234-0567).
-          </p>
+            inputMode="numeric" placeholder="1-0234-0567"
+            aria-invalid={!!errors.cedula} aria-describedby={errors.cedula ? 'pm-cedula-err' : undefined}/>
+          {errors.cedula
+            ? <span id="pm-cedula-err" style={{ fontSize:11, color:'var(--orange-d)' }}>{errors.cedula}</span>
+            : <p className="text-xs text-muted" style={{ marginTop:4 }}>
+                Escríbela completa, <strong>con todos los ceros</strong> (ej: 1-0234-0567).
+              </p>}
         </div>
         <div>
           <label className="text-sm text-muted" style={{ display:'block', marginBottom:4 }}>Teléfono</label>
-          <input className="finput" value={form.phone} onChange={e => f('phone', e.target.value)}/>
+          <input className="finput" value={form.phone} onChange={e => f('phone', e.target.value)}
+            placeholder="8888-8888"
+            aria-invalid={!!errors.phone} aria-describedby={errors.phone ? 'pm-phone-err' : undefined}/>
+          {errors.phone && <span id="pm-phone-err" style={{ fontSize:11, color:'var(--orange-d)' }}>{errors.phone}</span>}
         </div>
         <div style={{ gridColumn:'1/-1' }}>
           <label className="text-sm text-muted" htmlFor="pm-email" style={{ display:'block', marginBottom:4 }}>Correo electrónico *</label>

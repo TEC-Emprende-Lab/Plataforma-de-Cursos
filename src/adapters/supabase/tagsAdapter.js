@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase.js'
+import { validateTag } from '../../utils/validators.js'
 
 const TAG_SELECT = 'id,name,color'
 
@@ -17,6 +18,24 @@ function fromSupabaseError(error, fallbackCode) {
         fallbackCode,
     },
   }
+}
+
+/** Carga la lista actual para validar duplicados igual que en modo local. */
+async function fetchTags() {
+  const { data, error } =
+    await supabase
+      .from('tags')
+      .select(TAG_SELECT)
+      .order('name')
+
+  if (error) {
+    return fromSupabaseError(
+      error,
+      'TAGS_LOAD_ERROR'
+    )
+  }
+
+  return data || []
 }
 
 // ============================================================
@@ -51,11 +70,22 @@ export const tagsSupabaseAdapter = {
   // ----------------------------------------------------------
 
   async add(name, color) {
+    const tags = await fetchTags()
+
+    if (tags?.error) {
+      return tags
+    }
+
+    const check = validateTag(name, tags)
+    if (check.error) {
+      return check
+    }
+
     const { data, error } =
       await supabase
         .from('tags')
         .insert({
-          name,
+          name: check.name,
           color,
         })
         .select(TAG_SELECT)
@@ -76,11 +106,22 @@ export const tagsSupabaseAdapter = {
   // ----------------------------------------------------------
 
   async update(id, name, color) {
+    const tags = await fetchTags()
+
+    if (tags?.error) {
+      return tags
+    }
+
+    const check = validateTag(name, tags, id)
+    if (check.error) {
+      return check
+    }
+
     const { data, error } =
       await supabase
         .from('tags')
         .update({
-          name,
+          name: check.name,
           color,
         })
         .eq('id', id)
