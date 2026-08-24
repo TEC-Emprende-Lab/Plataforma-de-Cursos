@@ -422,7 +422,7 @@ export default function ParticipantsView({
                       </div>
                     </div>
                   </td>
-                  <td className="text-xs text-muted" style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                  <td className="text-xs text-muted" style={{ overflowWrap:'anywhere' }}>
                     {p.courses.map(shortName).join(', ')}
                   </td>
                   <td>

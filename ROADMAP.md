@@ -193,8 +193,8 @@ días completos transcurridos; solo se corregirá documentación y comentarios.
 - [x] Corregir clasificación de participantes sin acceso.
 - [x] Pasar cursos a todas las utilidades de recordatorios.
 - [x] Validar correo, teléfono, cédula, nombres de etiquetas y duplicados de forma equivalente.
-- [ ] Corregir la vista previa de exportación en los breakpoints actuales.
-- [ ] Verificar los hallazgos existentes de `docs/checkGeneral.md` y cerrar solo los reproducidos y corregidos.
+- [x] Corregir la vista previa de exportación en los breakpoints actuales.
+- [x] Verificar los hallazgos existentes de `docs/checkGeneral.md` y cerrar solo los reproducidos y corregidos.
 
 Validación de salida:
 
@@ -279,6 +279,7 @@ Validación de salida:
 | 2026-08-24 | Fase 4 | Fecha en tiempo de llamada y vigencia unificada (commits 2-3) | `TODAY` congelado eliminado; `classifyAccess` canónico adoptado por AccessView, Dashboard, Sidebar, ParticipantsView, Charts y pdf; revocación automática usa días por curso solo en cliente; correo calcula fechas con el curso real; duplicaciones de `getAccessDays` y literales 45 eliminadas. Suites: 55 pruebas Vitest, lint 0 errores/14 advertencias, build OK. |
 | 2026-08-24 | Fase 4 | Cursos en recordatorios (commit 4) | `RemindersView`, `AccessView` y `ProfileView` pasan `courses` a `buildReminderEmail`, `openEmailClient` y `copyEmailToClipboard`; los correos ya no muestran UUID de curso ni fechas con 45 días genéricos. La prueba automatizada del correo vive en `email.test.js`; el cableado de vistas se verifica por flujo visible. |
 | 2026-08-24 | Fase 4 | Validaciones equivalentes entre modos (commit 5) | Nuevo `utils/validators.js` (correo, teléfono, cédula, duplicados de correo y etiquetas) adoptado por `ImportView`, `ParticipantModal` (formato + duplicado con errores inline), `TagsView` (trim y duplicados insensibles a mayúsculas) y ambos adapters de etiquetas; el adapter local de participantes ahora normaliza cédula y trima texto igual que Supabase. El chequeo de correo duplicado queda en la capa compartida de UI, no en adapters. Suites: 78 pruebas Vitest (13 archivos), lint 0 errores/14 advertencias, build OK. |
+| 2026-08-24 | Fase 4 | Vista previa de exportación y cierre de checkGeneral (commit 6) | La tabla de vista previa usa `colgroup` con anchos fijos y la clase `tpreview` (`overflow-wrap:anywhere`) para que correo y cursos largos se envuelvan sin invadir columnas, en escritorio y en todos los breakpoints. La celda de cursos de la tabla de participantes dejó de truncar con puntos suspensivos y ahora continúa hacia abajo con la misma estrategia. Los seis hallazgos de `docs/checkGeneral.md` se reprodujeron antes y se verificó su corrección después: cinco ya resueltos por los commits 2-5 y este último en commit 6; el documento registra el estado final por hallazgo. Suites: 78 pruebas Vitest, lint 0 errores/14 advertencias, build OK. |
 
 ## 7. Problemas y cambios respecto al plan
 

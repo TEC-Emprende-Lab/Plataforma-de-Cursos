@@ -115,7 +115,16 @@ export default function ExportView({ participants, courses, tags = [] }) {
             </span>
           </div>
           <div style={{ overflowX:'auto' }}>
-            <table className="ttable" style={{ minWidth:520 }}>
+            <table className="ttable tpreview" style={{ minWidth:520 }}>
+              {/* Anchos fijos por columna: evita que el correo o los cursos
+                  compriman al resto cuando el contenido es largo. */}
+              <colgroup>
+                <col style={{ width:'24%' }}/>
+                <col style={{ width:'30%' }}/>
+                <col style={{ width:'24%' }}/>
+                <col style={{ width:'10%' }}/>
+                <col style={{ width:'12%' }}/>
+              </colgroup>
               <thead>
                 <tr><th>Nombre</th><th>Correo</th><th>Cursos</th><th>Acceso</th><th>Días restantes</th></tr>
               </thead>
