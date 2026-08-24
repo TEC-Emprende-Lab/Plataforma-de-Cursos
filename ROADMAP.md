@@ -189,9 +189,9 @@ actual es correcta — el día de ingreso cuenta como día 1 y `daysElapsed` mid
 días completos transcurridos; solo se corregirá documentación y comentarios.
 
 - [x] Calcular la fecha actual en tiempo de llamada, no al importar el módulo.
-- [ ] Unificar la vigencia por curso en carga, filtros, recordatorios, exportaciones y revocación. *(Clasificador canónico `classifyAccess`, revocación por curso solo en cliente y fechas de correo por curso aplicados; falta pasar `courses` desde las vistas de recordatorios.)*
+- [x] Unificar la vigencia por curso en carga, filtros, recordatorios, exportaciones y revocación.
 - [x] Corregir clasificación de participantes sin acceso.
-- [ ] Pasar cursos a todas las utilidades de recordatorios.
+- [x] Pasar cursos a todas las utilidades de recordatorios.
 - [ ] Validar correo, teléfono, cédula, nombres de etiquetas y duplicados de forma equivalente.
 - [ ] Corregir la vista previa de exportación en los breakpoints actuales.
 - [ ] Verificar los hallazgos existentes de `docs/checkGeneral.md` y cerrar solo los reproducidos y corregidos.
@@ -277,6 +277,7 @@ Validación de salida:
 | 2026-08-24 | Integración | Merge del PR #4 (`phase/3-validation`) en `main` | `main` actualizado y limpio; las correcciones de validación de Fase 3 quedan integradas. |
 | 2026-08-24 | Fase 4 | Línea base local en rama `phase/4-functional-fixes` | `npm run lint` pasa (0 errores, 14 advertencias); `npm test` pasa (51 pruebas Vitest, 10 archivos); `npm run build` pasa con advertencia de chunks grandes (App ~705 kB; ExcelJS diferido). `pytest` no ejecutable: `.venv` no existe localmente y debe recrearse desde `requirements-dev.txt` antes de validar backend. |
 | 2026-08-24 | Fase 4 | Fecha en tiempo de llamada y vigencia unificada (commits 2-3) | `TODAY` congelado eliminado; `classifyAccess` canónico adoptado por AccessView, Dashboard, Sidebar, ParticipantsView, Charts y pdf; revocación automática usa días por curso solo en cliente; correo calcula fechas con el curso real; duplicaciones de `getAccessDays` y literales 45 eliminadas. Suites: 55 pruebas Vitest, lint 0 errores/14 advertencias, build OK. |
+| 2026-08-24 | Fase 4 | Cursos en recordatorios (commit 4) | `RemindersView`, `AccessView` y `ProfileView` pasan `courses` a `buildReminderEmail`, `openEmailClient` y `copyEmailToClipboard`; los correos ya no muestran UUID de curso ni fechas con 45 días genéricos. La prueba automatizada del correo vive en `email.test.js`; el cableado de vistas se verifica por flujo visible. |
 
 ## 7. Problemas y cambios respecto al plan
 

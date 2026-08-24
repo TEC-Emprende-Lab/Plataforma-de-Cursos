@@ -8,11 +8,11 @@ import { buildReminderEmail, openEmailClient, copyEmailToClipboard } from '../ut
 import { useState } from 'react'
 import { Modal } from './UI.jsx'
 
-function EmailModal({ participant, onClose }) {
-  const em = buildReminderEmail(participant)
+function EmailModal({ participant, courses, onClose }) {
+  const em = buildReminderEmail(participant, courses)
   const [copied, setCopied] = useState(false)
   const handleCopy = () => {
-    copyEmailToClipboard(participant).then(() => {
+    copyEmailToClipboard(participant, courses).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
@@ -33,7 +33,7 @@ function EmailModal({ participant, onClose }) {
         <button className="btn btn-ghost" onClick={handleCopy} style={copied ? { color:'var(--green)', borderColor:'var(--green)' } : undefined}>
           <i className={`ti ti-${copied ? 'check' : 'copy'}`}/> {copied ? 'Copiado' : 'Copiar'}
         </button>
-        <button className="btn btn-orange" onClick={() => { openEmailClient(participant); onClose() }}><i className="ti ti-mail-forward"/> Abrir en correo</button>
+        <button className="btn btn-orange" onClick={() => { openEmailClient(participant, courses); onClose() }}><i className="ti ti-mail-forward"/> Abrir en correo</button>
       </div>
     </Modal>
   )
@@ -46,7 +46,7 @@ export default function RemindersView({ participants, courses = [], setView }) {
 
   return (
     <div>
-      {previewP && <EmailModal participant={previewP} onClose={() => setPreviewId(null)}/>}
+      {previewP && <EmailModal participant={previewP} courses={courses} onClose={() => setPreviewId(null)}/>}
       <div className="page-header"><div><h2 className="h1">Recordatorios de pruebas</h2><p className="text-muted" style={{fontSize:13,marginTop:3}}>Participantes que deben realizar su prueba final durante esta semana</p></div></div>
 
       {pending.length === 0 ? (

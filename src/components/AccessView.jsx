@@ -54,7 +54,7 @@ export default function AccessView({ participants, courses = [], onToggleAccess,
                   <div style={{fontWeight:500,fontSize:13}}>{p.name} <span style={{fontSize:11,color:'var(--amber-d)'}}>· {daysLeft(p.fecha, days)}d</span></div>
                   <div style={{maxWidth:280,marginTop:4}}><AccessBar fecha={p.fecha} days={days}/></div>
                 </div>
-                <button className="btn btn-orange btn-sm" style={{marginLeft:'auto'}} onClick={() => openEmailClient(p)}><i className="ti ti-mail"/> Recordatorio</button>
+                <button className="btn btn-orange btn-sm" style={{marginLeft:'auto'}} onClick={() => openEmailClient(p, courses)}><i className="ti ti-mail"/> Recordatorio</button>
               </div>
             )
           })}

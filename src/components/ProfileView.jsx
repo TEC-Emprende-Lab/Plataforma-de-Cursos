@@ -197,7 +197,7 @@ export default function ProfileView({ id, participants, courses, tags, onToggleA
           <p className="text-sm text-muted" style={{ marginBottom:12 }}>
             Prueba antes del <b>{examDeadlineDate(p.fecha, days)}</b> · Acceso expira el <b>{expiryDate(p.fecha, days)}</b>
           </p>
-          <button className="btn btn-orange btn-sm" onClick={() => openEmailClient(p)}>
+          <button className="btn btn-orange btn-sm" onClick={() => openEmailClient(p, courses)}>
             <i className="ti ti-mail-forward"/> Abrir correo recordatorio
           </button>
         </div>
