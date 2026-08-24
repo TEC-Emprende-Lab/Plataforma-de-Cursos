@@ -1,12 +1,14 @@
 # Contexto técnico persistente de la codebase
 
 > Mapa de orientación rápida. No reemplaza al código ni a `ROADMAP.md`.
-> Última actualización: 2026-08-19.
+> Última actualización: 2026-08-24.
 
-Estado operativo: Fases 0 a 3 completadas; Fases 2 y 3 ya fueron integradas en
-`main`. La rama `phase/3-validation` contiene correcciones posteriores al merge
-y requiere Pull Request, checks remotos y confirmación del propietario. La
-siguiente fase de implementación es la Fase 4.
+Estado operativo: Fases 0 a 3 completadas e integradas en `main` (PR #2, #3 y
+#4). La Fase 4 está EN CURSO en la rama `phase/4-functional-fixes`: corrección
+funcional respaldada por pruebas, entregada como un único Pull Request con
+commits revisados por el propietario. Regla de vigencia confirmada: el día de
+ingreso cuenta como día 1; solo se corrige documentación, no la aritmética. La
+revocación automática seguirá siendo solo de estado en cliente.
 
 ## Propósito del sistema
 
@@ -287,6 +289,8 @@ npm run lint      # 0 errores; 14 advertencias conocidas
 npm run build     # build de producción
 
 cd backend
+# Recrear el entorno si no existe .venv en la raíz:
+python -m venv ../.venv
 ../.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
 ../.venv/Scripts/python.exe -m pytest   # 104 pruebas backend
 ```
