@@ -301,8 +301,9 @@ export default function ImportView({ participants, courses = [], onImport, onBul
       {done && (
         <>
           <div style={{
-            marginTop: 16, padding: 14, background: '#E4F0E8',
-            border: '1px solid #3D7A5A', borderRadius: 8, fontSize: 13,
+            marginTop: 16, padding: 14, background: 'var(--green-l)',
+            border: '1px solid var(--green)', borderRadius: 8, fontSize: 13,
+            color: 'var(--green)',
           }}>
             <i className="ti ti-check"/> Importación completada — {importedIds.length} participante{importedIds.length !== 1 ? 's' : ''} agregado{importedIds.length !== 1 ? 's' : ''}.
           </div>
@@ -341,7 +342,7 @@ export default function ImportView({ participants, courses = [], onImport, onBul
                       border: '1px solid var(--border)',
                       borderRadius: 6,
                       cursor: 'pointer',
-                      background: bulkCourses.has(c.id) ? '#FEF8F2' : 'transparent',
+                      background: bulkCourses.has(c.id) ? 'var(--alert-warm-bg)' : 'transparent',
                       fontSize: 12,
                     }}>
                       <input type="checkbox"
@@ -416,15 +417,15 @@ export default function ImportView({ participants, courses = [], onImport, onBul
 
       {enriching && (
         <div style={{ margin:'16px 0', padding:'12px 16px', borderRadius:10,
-          background:'#eff6ff', border:'1px solid #bfdbfe', display:'flex', alignItems:'center', gap:10 }}>
+          background:'var(--blue-l)', border:'1px solid var(--blue-text)', display:'flex', alignItems:'center', gap:10 }}>
           <span style={{ fontSize:18, animation:'spin 1s linear infinite', display:'inline-block' }}>⟳</span>
-          <span style={{ fontSize:13, color:'#1d4ed8' }}>Consultando el Registro Civil para corregir nombres...</span>
+          <span style={{ fontSize:13, color:'var(--blue-text)' }}>Consultando el Registro Civil para corregir nombres...</span>
         </div>
       )}
 
       {enrichStats && (
         <div style={{ margin:'0 0 12px', padding:'10px 14px', borderRadius:10,
-          background:'#f0fdf4', border:'1px solid #bbf7d0', fontSize:13, color:'#15803d' }}>
+          background:'var(--green-l)', border:'1px solid var(--green)', fontSize:13, color:'var(--green)' }}>
           <i className="ti ti-id-badge"/> Registro Civil: {enrichStats.found}/{enrichStats.total} encontrados
           {enrichStats.corrected > 0
             ? <> · <strong>{enrichStats.corrected} nombre{enrichStats.corrected !== 1 ? 's' : ''} corregido{enrichStats.corrected !== 1 ? 's' : ''}</strong></>
@@ -471,7 +472,7 @@ export default function ImportView({ participants, courses = [], onImport, onBul
                 border:'1px solid var(--border)', borderTopLeftRadius:8, borderTopRightRadius:8,
                 borderBottom:'none', fontSize:12,
               }}>
-                <i className="ti ti-calendar" style={{ color:'var(--orange)' }}/>
+                <i className="ti ti-calendar" style={{ color:'var(--orange-text)' }}/>
                 <span className="font-medium">Fecha de ingreso</span>
                 <span className="text-muted">— editable por fila o aplicar a todos:</span>
                 <input className="finput" type="date"
@@ -514,7 +515,7 @@ export default function ImportView({ participants, courses = [], onImport, onBul
           )}
 
           {tab === 'errores' && parseRes.errors.length > 0 && (
-            <div style={{ background: '#FCEBEB', border: '1px solid #A32D2D33', borderRadius: 8, padding: 12, fontSize: 12, fontFamily: 'monospace' }}>
+            <div style={{ background: 'var(--row-exp-bg)', border: '1px solid var(--orange-d)', color: 'var(--orange-d)', borderRadius: 8, padding: 12, fontSize: 12, fontFamily: 'monospace' }}>
               {parseRes.errors.map(e => (
                 <div key={e.line}>línea {e.line}: {e.raw}</div>
               ))}
@@ -530,7 +531,7 @@ export default function ImportView({ participants, courses = [], onImport, onBul
   )
 }
 
-function TabBtn({ id, active, onClick, label, count, accent = 'var(--orange)' }) {
+function TabBtn({ id, active, onClick, label, count, accent = 'var(--action)' }) {
   return (
     <button onClick={() => onClick(id)}
       aria-current={active ? 'true' : undefined}
@@ -553,7 +554,7 @@ function RowItem({ selected, onToggle, row, fecha, onFechaChange }) {
     <div style={{
       display: 'flex', alignItems: 'center', gap: 12, flexWrap:'wrap',
       padding: '10px 14px', borderBottom: '1px solid var(--cream-2)',
-      background: selected ? '#FEF8F2' : 'transparent',
+      background: selected ? 'var(--alert-warm-bg)' : 'transparent',
     }}>
       <label style={{ display:'flex', alignItems:'center', gap:12, flex:1, minWidth:0, cursor:'pointer' }}>
         <input type="checkbox" checked={selected} onChange={onToggle}/>

@@ -32,7 +32,7 @@ export function DonutAccess({ participants, courses }) {
   // Segmentos con offset acumulado
   const segs = [
     { value: activos, color: 'var(--green)',    label: 'Vigentes' },
-    { value: warning, color: 'var(--orange)',   label: 'Por vencer' },
+    { value: warning, color: 'var(--amber)',    label: 'Por vencer' },
     { value: expired, color: 'var(--orange-d)', label: 'Expirados' },
   ]
   let acc = 0
@@ -49,13 +49,13 @@ export function DonutAccess({ participants, courses }) {
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} role="img" aria-label="Estado de accesos">
         {/* Pista de fondo */}
         <circle cx={cx} cy={cy} r={R} fill="none"
-          stroke="var(--cream-3)" strokeWidth={18}/>
-        {/* Segmentos */}
+          stroke="var(--cream)" strokeWidth={22}/>
         {total > 0 && arcs.map((a, i) => a.value > 0 && (
           <circle key={i} cx={cx} cy={cy} r={R} fill="none"
-            stroke={a.color} strokeWidth={18}
+            stroke={a.color} strokeWidth={16}
             strokeDasharray={`${a.dash} ${C - a.dash}`}
             strokeDashoffset={a.offset}
+            strokeLinecap="butt"
             transform={`rotate(-90 ${cx} ${cy})`}/>
         ))}
         {/* Total al centro */}

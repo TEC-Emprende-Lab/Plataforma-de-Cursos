@@ -19,7 +19,7 @@ export default function AccessView({ participants, courses = [], onToggleAccess,
       <div className="page-header"><div><h2 className="h1">Control de Accesos</h2><p className="text-muted" style={{fontSize:13,marginTop:3}}>Vigencia personalizada por curso · Revocación automática al expirar</p></div></div>
       <div className="stats-grid">
         <StatCard num={conAcceso.length} label="Activos" />
-        <StatCard num={sinAcceso.length} label="Pendientes" accent="var(--orange)" />
+        <StatCard num={sinAcceso.length} label="Pendientes" accent="var(--orange-text)" />
         <StatCard num={warning.length}   label="Expiran ≤7 días" accent="var(--amber)" />
         <StatCard num={expired.length}   label="Expirados" accent="var(--orange-d)" />
       </div>

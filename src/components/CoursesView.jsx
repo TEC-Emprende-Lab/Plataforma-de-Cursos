@@ -84,13 +84,13 @@ export default function CoursesView({ courses, participants, setView, onAdd, onU
           <div className="stat-label">Total programas</div>
         </div>
         <div className="stat-card">
-          <div className="stat-num" style={{ color:'var(--orange)' }}>
+          <div className="stat-num" style={{ color:'var(--orange-text)' }}>
             {courses.filter(c=>c.type==='taller').length}
           </div>
           <div className="stat-label">Talleres</div>
         </div>
         <div className="stat-card">
-          <div className="stat-num" style={{ color:'var(--blue,#185FA5)' }}>
+          <div className="stat-num" style={{ color:'var(--blue-text)' }}>
             {courses.filter(c=>c.type==='curso').length}
           </div>
           <div className="stat-label">Cursos</div>

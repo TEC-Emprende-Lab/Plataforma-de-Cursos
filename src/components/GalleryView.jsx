@@ -31,7 +31,7 @@ function SvgPreviewCard({ tpl, loading, selected, onSelect, onPreview, onDelete 
       <div className="relative bg-stone-100 overflow-hidden" style={{ aspectRatio:'1.414/1' }}>
         {loading ? (
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="material-symbols-outlined text-stone-300 animate-spin" style={{fontSize:28}}>refresh</span>
+            <span className="material-symbols-outlined text-muted animate-spin" style={{fontSize:28}}>refresh</span>
           </div>
         ) : tpl.svgContent ? (
           <div
@@ -40,7 +40,7 @@ function SvgPreviewCard({ tpl, loading, selected, onSelect, onPreview, onDelete 
             dangerouslySetInnerHTML={{ __html: svgPreviewMarkup(tpl.svgContent, { style:'display:block;width:100%;height:auto' }) }}
           />
         ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-stone-300">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted">
             <span className="material-symbols-outlined text-4xl">workspace_premium</span>
             <span className="text-xs">Sin vista previa</span>
           </div>
@@ -116,7 +116,7 @@ function SvgFullModal({ tpl, onClose, onUse }) {
               <span className="material-symbols-outlined" style={{fontSize:16}}>workspace_premium</span>
               Usar esta plantilla
             </button>
-            <button onClick={onClose} className="p-2 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100">
+            <button onClick={onClose} className="p-2 text-muted hover:text-stone-700 rounded-lg hover:bg-stone-100">
               <span className="material-symbols-outlined" style={{fontSize:18}}>close</span>
             </button>
           </div>
@@ -126,7 +126,7 @@ function SvgFullModal({ tpl, onClose, onUse }) {
             <div className="bg-white rounded-xl shadow-md w-full max-w-3xl"
               dangerouslySetInnerHTML={{ __html: svgPreviewMarkup(tpl.svgContent, { style:'display:block;width:100%;height:auto' }) }} />
           ) : (
-            <div className="flex flex-col items-center gap-3 text-stone-300 py-20">
+            <div className="flex flex-col items-center gap-3 text-muted py-20">
               <span className="material-symbols-outlined text-6xl">image_not_supported</span>
               <p className="text-sm">Vista previa no disponible</p>
             </div>
@@ -174,7 +174,7 @@ function UploadModal({ onClose, onSave, uploading, error }) {
             <span className="material-symbols-outlined text-orange-500" style={{fontSize:18}}>upload_file</span>
             Subir nueva plantilla SVG
           </h3>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-700">
+          <button onClick={onClose} className="text-muted hover:text-stone-700">
             <span className="material-symbols-outlined" style={{fontSize:18}}>close</span>
           </button>
         </div>
@@ -373,7 +373,7 @@ export default function GalleryView({ onUseCertificate }) {
       {/* Stats */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:12, marginBottom:20 }}>
         {[
-          { icon:'workspace_premium', label:'Total plantillas', value: templates.length,                              color:'var(--orange)' },
+          { icon:'workspace_premium', label:'Total plantillas', value: templates.length,                              color:'var(--orange-text)' },
           { icon:'star',              label:'Tuyas',            value: templates.filter(t => !t.is_builtin).length,    color:'var(--green)' },
           { icon:'shield',            label:'Predefinidas',     value: templates.filter(t => t.is_builtin).length,     color:'var(--gray)' },
         ].map(s => (
@@ -393,7 +393,7 @@ export default function GalleryView({ onUseCertificate }) {
       {/* Filtros */}
       <div className="flex gap-3 mb-6 flex-wrap">
         <div className="relative flex-1 min-w-[180px] max-w-xs">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" style={{fontSize:16}}>search</span>
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted" style={{fontSize:16}}>search</span>
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por nombre o etiqueta…"
             className="w-full border border-stone-200 rounded-lg pl-9 pr-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-400" />
@@ -424,7 +424,7 @@ export default function GalleryView({ onUseCertificate }) {
 
       {/* Grid */}
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-stone-300 gap-4">
+        <div className="flex flex-col items-center justify-center py-20 text-muted gap-4">
           <span className="material-symbols-outlined text-6xl">photo_library</span>
           <p className="text-sm">No hay plantillas que coincidan</p>
           <button onClick={() => { setSearch(''); setFilterStyle('all') }}
@@ -451,10 +451,11 @@ export default function GalleryView({ onUseCertificate }) {
           <span className="material-symbols-outlined text-orange-400 shrink-0" style={{fontSize:18}}>workspace_premium</span>
           <span className="font-medium truncate">{selectedTpl.name}</span>
           <button onClick={() => handleUse(selectedTpl)}
-            className="ml-auto shrink-0 px-3 py-1.5 bg-orange-500 text-white text-xs font-bold rounded-lg hover:bg-orange-600 transition-colors">
+            className="ml-auto shrink-0 px-3 py-1.5 text-xs font-bold rounded-lg"
+            style={{ background:'var(--action)', color:'var(--action-fg)' }}>
             Usar →
           </button>
-          <button onClick={() => setSelectedId(null)} className="text-stone-500 hover:text-stone-300 shrink-0">
+          <button onClick={() => setSelectedId(null)} className="shrink-0" style={{ color:'#FAF5EC' }}>
             <span className="material-symbols-outlined" style={{fontSize:16}}>close</span>
           </button>
         </div>

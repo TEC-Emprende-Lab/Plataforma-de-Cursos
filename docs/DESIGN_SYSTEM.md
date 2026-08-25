@@ -121,10 +121,13 @@ el modo oscuro y mantener consistencia.
 | **Tabla** (`.ttable`) | Encabezado en MAYÚSCULA tono gris, filas alternas crema. Responsiva → tarjetas en móvil. |
 | **Badge / pill** | `inline-flex`, radio 20px, fondos suaves por estado. |
 | **TagPill** | Punto de color + texto. |
+| **AccessBar** | Muestra días transcurridos de total (ej: `12d de 45d`), no porcentaje. Colores semánticos por estado. |
+| **ColorPicker** | Selector de color con fondo `cream-3` y borde para distinguir colores claros del fondo. Accesible: `role="radiogroup"`, botones con `role="radio"`. |
 | **Barra de progreso** (`.pbar`) | Verde (ok) / naranja (warn) / siena (expirado). |
 
 ### Patrones de layout recurrentes
 - **Bento / grilla de tarjetas:** `grid` con `repeat(auto-fill, minmax(Npx, 1fr))`.
+- **Card destacada:** borde superior de color (ej: `borderTop: 3px solid var(--orange)`) para acciones primarias dentro de una vista con múltiples cards.
 - **Shell:** sidebar fijo oscuro (220px) + contenido crema con padding generoso.
 - **Wizard por pasos:** stepper numerado (1→2→3) con verificación por paso.
 - **Pestañas:** subnavegación con contador por pestaña.

@@ -92,7 +92,7 @@ export default function TagsView({ tags, participants, onAdd, onEdit, onDelete }
           <div className="stat-label">Etiquetas activas</div>
         </div>
         <div className="stat-card">
-          <div className="stat-num" style={{ color:'var(--orange)' }}>
+          <div className="stat-num" style={{ color:'var(--orange-text)' }}>
             {participants.filter(p => p.tags?.length > 0).length}
           </div>
           <div className="stat-label">Participantes etiquetados</div>
@@ -104,9 +104,9 @@ export default function TagsView({ tags, participants, onAdd, onEdit, onDelete }
       </div>
 
       {/* Crear nueva etiqueta */}
-      <div className="card card-padded" style={{ marginBottom:16 }}>
-        <div style={{ fontWeight:500, fontSize:13, marginBottom:14, display:'flex', alignItems:'center', gap:6 }}>
-          <i className="ti ti-tag" style={{ fontSize:14, color:'var(--orange)' }}/> Nueva etiqueta
+      <div className="card card-padded" style={{ marginBottom:16, borderTop:'3px solid var(--orange)' }}>
+        <div style={{ fontWeight:600, fontSize:14, marginBottom:14, display:'flex', alignItems:'center', gap:6, color:'var(--orange-d)' }}>
+          <i className="ti ti-plus" style={{ fontSize:16 }}/> Nueva etiqueta
         </div>
         <div className="filters-row" style={{ display:'flex', gap:12, alignItems:'flex-end', flexWrap:'wrap' }}>
           <div style={{ flex:1, minWidth:180 }}>

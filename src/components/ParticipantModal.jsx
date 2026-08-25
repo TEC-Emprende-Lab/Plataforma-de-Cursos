@@ -163,7 +163,7 @@ export default function ParticipantModal({ participant, participants = [], cours
       <div style={{ marginBottom:14 }}>
         <label className="text-sm text-muted" style={{ display:'block', marginBottom:4 }}>
           Fecha de ingreso
-          <span style={{ marginLeft:8, color:'var(--orange)', fontSize:11 }}>
+          <span style={{ marginLeft:8, color:'var(--orange-text)', fontSize:11 }}>
             (acceso por {accessDays} días
             {accessDays % 7 === 0 ? ` · ${accessDays/7} semana${accessDays/7!==1?'s':''}` : ''})
           </span>

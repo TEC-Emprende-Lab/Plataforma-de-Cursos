@@ -188,12 +188,12 @@ function TemplateCarousel({ templates, selectedValue, svgFile, onSelect, certApi
                 </div>
                 {/* Nombre */}
                 <span style={{ fontSize:11, fontWeight: isSelected ? 600 : 400,
-                  color: isSelected ? 'var(--orange)' : 'var(--gray)',
+                  color: isSelected ? 'var(--orange-text)' : 'var(--gray)',
                   whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%' }}>
                   {opt.label}
                 </span>
                 {isSelected && (
-                  <span className="material-symbols-outlined" style={{ fontSize:14, color:'var(--orange)' }}>check_circle</span>
+                  <span className="material-symbols-outlined" style={{ fontSize:14, color:'var(--orange-text)' }}>check_circle</span>
                 )}
               </button>
             )
@@ -217,7 +217,7 @@ function TemplateCarousel({ templates, selectedValue, svgFile, onSelect, certApi
           {Array(total).fill(0).map((_, i) => (
             <div key={i} onClick={() => setIdx(Math.min(maxIdx, Math.max(0, i - Math.floor(VISIBLE/2))))}
               style={{ width: i >= idx && i < idx + VISIBLE ? 16 : 6, height:6, borderRadius:3,
-                background: i >= idx && i < idx + VISIBLE ? 'var(--orange)' : 'var(--border)',
+                background: i >= idx && i < idx + VISIBLE ? 'var(--action)' : 'var(--border)',
                 transition:'all .2s', cursor:'pointer' }} />
           ))}
         </div>
@@ -346,7 +346,7 @@ function CertDropZone({ accept, title, subtitle, icon, file, onFile }) {
         </div>
       ) : (
         <>
-          <span className="material-symbols-outlined" style={{fontSize:30, color:'var(--orange)', display:'block', marginBottom:8}}>{icon}</span>
+          <span className="material-symbols-outlined" style={{fontSize:30, color:'var(--orange-text)', display:'block', marginBottom:8}}>{icon}</span>
           <p style={{ fontSize:13, fontWeight:500, color:'var(--black)' }}>{title}</p>
           {subtitle && <p style={{ fontSize:11, color:'var(--gray)', marginTop:2 }}>{subtitle}</p>}
         </>
@@ -393,8 +393,8 @@ function Stepper({ steps, current, onStep }) {
                 width:24, height:24, borderRadius:'50%', display:'inline-flex',
                 alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700,
                 flexShrink:0, transition:'all .15s',
-                background: active ? 'var(--orange)' : done ? 'var(--green)' : 'var(--cream-3)',
-                color: active || done ? '#fff' : 'var(--gray)',
+                background: active ? 'var(--action)' : done ? 'var(--green)' : 'var(--cream-3)',
+                color: active || done ? 'var(--action-fg)' : 'var(--black)',
               }}>
                 {done ? <span className="material-symbols-outlined" style={{fontSize:14}}>check</span> : n}
               </span>
@@ -420,7 +420,7 @@ function SectionHeader({ icon, label, action }) {
   return (
     <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14,
       paddingBottom:12, borderBottom:'1px solid var(--cream-3)' }}>
-      <span className="material-symbols-outlined" style={{ fontSize:16, color:'var(--orange)' }}>{icon}</span>
+      <span className="material-symbols-outlined" style={{ fontSize:16, color:'var(--orange-text)' }}>{icon}</span>
       <span style={{ fontSize:11, fontWeight:700, textTransform:'uppercase',
         letterSpacing:'.6px', color:'var(--gray)', flex:1 }}>{label}</span>
       {action}
@@ -783,12 +783,12 @@ function CertIndividual({ participants, courses = [], galleryTplPick, onGalleryC
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
           padding:'12px 16px', borderBottom:'1px solid var(--cream-3)' }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <span className="material-symbols-outlined" style={{ fontSize:15, color:'var(--orange)' }}>preview</span>
+            <span className="material-symbols-outlined" style={{ fontSize:15, color:'var(--orange-text)' }}>preview</span>
             <span style={{ fontSize:13, fontWeight:500, color:'var(--black)' }}>Vista previa en tiempo real</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
             {previewLoading
-              ? <><span className="material-symbols-outlined spinner" style={{fontSize:13, color:'var(--orange)'}}>refresh</span>
+              ? <><span className="material-symbols-outlined spinner" style={{fontSize:13, color:'var(--orange-text)'}}>refresh</span>
                   <span style={{ fontSize:11, color:'var(--gray)' }}>Actualizando…</span></>
               : <><span style={{ width:7, height:7, borderRadius:'50%', background:'var(--green)', display:'inline-block' }} />
                   <span style={{ fontSize:11, color:'var(--gray)' }}>Actualizado</span></>}
@@ -1045,7 +1045,7 @@ function CertBatch({ participants = [], courses = [] }) {
                 {filterCourses.length > 0 && (
                   <button onClick={() => setFilterCourses([])}
                     style={{ background:'none', border:'none', cursor:'pointer', fontSize:11,
-                      color:'var(--orange)', fontWeight:600 }}>
+                      color:'var(--orange-text)', fontWeight:600 }}>
                     Limpiar
                   </button>
                 )}
@@ -1134,7 +1134,7 @@ function CertBatch({ participants = [], courses = [] }) {
             También acepta: <code>name</code>, <code>participante</code>, <code>date</code>, <code>issue_date</code>
           </p>
           <button onClick={downloadSample} style={{ display:'flex', alignItems:'center', gap:6, fontSize:12,
-            fontWeight:500, color:'var(--orange)', background:'none', border:'none', cursor:'pointer', padding:0 }}>
+            fontWeight:500, color:'var(--orange-text)', background:'none', border:'none', cursor:'pointer', padding:0 }}>
             <span className="material-symbols-outlined" style={{fontSize:14}}>download</span> Descargar CSV de ejemplo
           </button>
         </div>
@@ -1205,9 +1205,9 @@ function CertBatch({ participants = [], courses = [] }) {
         <div style={{ background:'var(--alert-warm-bg)', border:'1px solid var(--border)',
           borderRadius:'var(--radius-lg)', padding:16 }}>
           <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
-            <div style={{ width:38, height:38, background:'var(--orange)', borderRadius:'var(--radius-md)',
+            <div style={{ width:38, height:38, background:'var(--action)', borderRadius:'var(--radius-md)',
               display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-              <span className="material-symbols-outlined" style={{fontSize:18, color:'#fff'}}>folder_zip</span>
+              <span className="material-symbols-outlined" style={{fontSize:18, color:'var(--action-fg)'}}>folder_zip</span>
             </div>
             <div>
               <p style={{ fontSize:13, fontWeight:600, color:'var(--black)' }}>
@@ -1220,7 +1220,7 @@ function CertBatch({ participants = [], courses = [] }) {
           </div>
           {progress > 0 && (
             <div style={{ height:4, borderRadius:20, background:'var(--cream-3)', overflow:'hidden', marginBottom:12 }}>
-              <div style={{ height:'100%', background:'var(--orange)', borderRadius:20, transition:'width .5s', width:`${progress}%` }} />
+              <div style={{ height:'100%', background:'var(--action)', borderRadius:20, transition:'width .5s', width:`${progress}%` }} />
             </div>
           )}
           <button onClick={generate} disabled={loading || (!templateName && !svgFile) || !csvFile}
@@ -1280,7 +1280,7 @@ function CertFieldsReference() {
         style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
           padding:'12px 16px', background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <span className="material-symbols-outlined" style={{fontSize:15, color:'var(--orange)'}}>table_chart</span>
+          <span className="material-symbols-outlined" style={{fontSize:15, color:'var(--orange-text)'}}>table_chart</span>
           <span style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.6px', color:'var(--gray)' }}>
             Referencia de campos SVG
           </span>
@@ -1307,7 +1307,7 @@ function CertFieldsReference() {
                 <tr key={row.id}>
                   <td>
                     <code style={{ fontFamily:'monospace', fontWeight:700, fontSize:11,
-                      color:'var(--orange)', background:'var(--alert-warm-bg)',
+                      color:'var(--orange-text)', background:'var(--alert-warm-bg)',
                       padding:'2px 6px', borderRadius:4 }}>{row.id}</code>
                   </td>
                   <td style={{ fontFamily:'monospace', fontSize:11 }}>{row.csv}</td>
@@ -1357,7 +1357,7 @@ export default function CertificatesView({ participants, courses = [], galleryTp
         <div>
           <h2 style={{ fontFamily:'var(--font-display)', fontSize:22, fontWeight:600, color:'var(--black)',
             display:'flex', alignItems:'center', gap:8 }}>
-            <span className="material-symbols-outlined" style={{ color:'var(--orange)' }}>workspace_premium</span>
+            <span className="material-symbols-outlined" style={{ color:'var(--orange-text)' }}>workspace_premium</span>
             Generador de Certificados
           </h2>
           <p style={{ fontSize:13, color:'var(--gray)', marginTop:4 }}>Emití certificados digitales para los participantes de los programas</p>
@@ -1371,9 +1371,9 @@ export default function CertificatesView({ participants, courses = [], galleryTp
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:20,
             fontSize:12, fontWeight:600,
-            border: aiAvailable ? '1px solid #7C3AED' : '1px solid var(--border)',
-            background: aiAvailable ? '#F5F3FF' : 'var(--cream-2)',
-            color: aiAvailable ? '#6D28D9' : 'var(--gray)' }}>
+            border: aiAvailable ? '1px solid var(--blue-text)' : '1px solid var(--border)',
+            background: aiAvailable ? 'var(--blue-l)' : 'var(--cream-2)',
+            color: aiAvailable ? 'var(--blue-text)' : 'var(--gray)' }}>
             <span className="material-symbols-outlined" style={{fontSize:13}}>{aiAvailable ? 'auto_awesome' : 'key_off'}</span>
             {aiAvailable ? 'Claude activo' : 'IA inactiva'}
           </div>

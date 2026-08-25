@@ -47,7 +47,7 @@ export default function Dashboard({ participants, courses, setView }) {
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
             <h3 className="h3" style={{margin:0}}>Cursos y talleres activos</h3>
             <button onClick={()=>setView('courses')}
-              style={{background:'none',border:'none',color:'var(--orange)',cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit'}}>
+              style={{background:'none',border:'none',color:'var(--orange-text)',cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit'}}>
               Ver todos
             </button>
           </div>
@@ -81,7 +81,7 @@ export default function Dashboard({ participants, courses, setView }) {
             {activeCourses.length===0&&
               <div style={{padding:20,color:'var(--gray)',fontSize:13,gridColumn:'1/-1'}}>
                 No hay cursos activos. <button onClick={()=>setView('courses')}
-                  style={{background:'none',border:'none',color:'var(--orange)',cursor:'pointer',fontSize:13,fontFamily:'inherit',textDecoration:'underline'}}>Crear uno</button>.
+                  style={{background:'none',border:'none',color:'var(--orange-text)',cursor:'pointer',fontSize:13,fontFamily:'inherit',textDecoration:'underline'}}>Crear uno</button>.
               </div>}
           </div>
         </section>
@@ -91,7 +91,7 @@ export default function Dashboard({ participants, courses, setView }) {
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
             <h3 className="h3" style={{margin:0}}>Participantes recientes</h3>
             <button onClick={()=>setView('participants')}
-              style={{background:'none',border:'none',color:'var(--orange)',cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit'}}>
+              style={{background:'none',border:'none',color:'var(--orange-text)',cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit'}}>
               Ver todos
             </button>
           </div>

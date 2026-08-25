@@ -6,7 +6,7 @@
 // ============================================================
 
 import { useState, useEffect, useRef } from 'react'
-import { accessPct, daysLeft, isExpired, isWarning, ACCESS_DAYS } from '../utils/time.js'
+import { accessPct, daysLeft, daysElapsed, isExpired, isWarning, ACCESS_DAYS } from '../utils/time.js'
 
 // Re-export constante para uso externo
 export { ACCESS_DAYS }
@@ -14,9 +14,10 @@ export { ACCESS_DAYS }
 // ── Badge ─────────────────────────────────────────────────
 const BADGE_STYLES = {
   black:   { background: 'var(--black)',    color: 'var(--cream)' },
-  orange:  { background: 'var(--orange)',   color: '#fff' },
-  gray:    { background: 'var(--cream-3)',  color: 'var(--gray)' },
-  red:     { background: 'var(--orange-d)', color: '#fff' },
+  orange:  { background: 'var(--action)',   color: 'var(--action-fg)' },
+  amber:   { background: 'var(--amber-l)',  color: 'var(--amber-d)', border: '1px solid var(--amber)' },
+  gray:    { background: 'var(--cream-3)',  color: 'var(--black-2)' },
+  red:     { background: 'var(--action-hover)', color: 'var(--action-fg)' },
   green:   { background: '#D1FAE5',         color: '#065F46' },
 }
 
@@ -63,6 +64,7 @@ export function TimerBadge({ fecha, access, days = ACCESS_DAYS }) {
 export function AccessBar({ fecha, compact = false, days = ACCESS_DAYS }) {
   const pct   = accessPct(fecha, days)
   const left  = daysLeft(fecha, days)
+  const elapsed = daysElapsed(fecha)
   const exp   = isExpired(fecha, days)
   const warn  = isWarning(fecha, days)
 
@@ -79,10 +81,10 @@ export function AccessBar({ fecha, compact = false, days = ACCESS_DAYS }) {
           <span style={{ color: txtColor, fontWeight: 500, display:'inline-flex', alignItems:'center', gap:3 }}>
             <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize:13, lineHeight:1 }}>{icon}</span>
             {label}</span>
-          <span style={{ color: 'var(--gray)' }}>{pct}% de {days}d</span>
+          <span style={{ color: 'var(--gray)' }}>{elapsed}d de {days}d</span>
         </div>
       )}
-      <div className="pbar-wrap" style={{ background: bgColor }}>
+      <div className="pbar-wrap" style={{ background: bgColor }} role="img" aria-label={label}>
         <div className={barClass} style={{ width: `${pct}%` }} />
       </div>
     </div>

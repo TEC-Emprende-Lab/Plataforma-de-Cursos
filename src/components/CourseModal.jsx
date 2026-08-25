@@ -64,7 +64,7 @@ export default function CourseModal({ course, onSave, onClose }) {
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
         <h3 className="h2">
-          <i className="ti ti-book" style={{ color:'var(--orange)', marginRight:8, fontSize:18 }}/>
+          <i className="ti ti-book" style={{ color:'var(--orange-text)', marginRight:8, fontSize:18 }}/>
           {course ? 'Editar' : 'Nuevo'} {form.type}
         </h3>
         <button onClick={onClose}
@@ -212,7 +212,7 @@ export default function CourseModal({ course, onSave, onClose }) {
             onChange={e => f('certEnabled', e.target.checked)}
             style={{ width:14, height:14, cursor:'pointer' }}/>
           <label htmlFor="cert-check" style={{ fontSize:12, cursor:'pointer' }}>
-            <i className="ti ti-certificate" style={{ marginRight:5, color:'var(--orange)' }}/>
+            <i className="ti ti-certificate" style={{ marginRight:5, color:'var(--orange-text)' }}/>
             Habilitado para generación de certificados
           </label>
         </div>

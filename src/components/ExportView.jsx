@@ -26,7 +26,7 @@ export default function ExportView({ participants, courses, tags = [] }) {
 
   const FORMATS = [
     { id:'excel', icon:'table_view',      label:'Excel', hint:'.xlsx · análisis', color:'var(--green)' },
-    { id:'csv',   icon:'data_object',     label:'CSV',   hint:'universal',         color:'var(--orange)' },
+    { id:'csv',   icon:'data_object',     label:'CSV',   hint:'universal',         color:'var(--orange-text)' },
     { id:'pdf',   icon:'picture_as_pdf',  label:'PDF',   hint:'informe ejecutivo', color:'var(--orange-d)' },
   ]
 
