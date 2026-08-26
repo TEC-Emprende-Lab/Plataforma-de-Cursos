@@ -73,7 +73,7 @@ export default function ProfileView({ id, participants, courses, tags, onToggleA
         <div style={{ display:'flex', gap:8, flexShrink:0 }}>
           {p.access
             ? <button className="btn btn-ghost btn-sm"
-                style={{ color:'var(--orange-l)', borderColor:'var(--orange)' }}
+                style={{ color:'var(--orange-text)', borderColor:'var(--orange-d)' }}
                 onClick={() => { onToggleAccess(p.id); setView(`profile_${p.id}`) }}>
                 <i className="ti ti-key"/> Revocar
               </button>

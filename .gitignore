@@ -42,3 +42,5 @@ tasks/
 .playwright-mcp/
 .vercel
 *.zip
+
+*/__pycache__

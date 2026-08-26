@@ -1,14 +1,14 @@
 # Contexto técnico persistente de la codebase
 
 > Mapa de orientación rápida. No reemplaza al código ni a `ROADMAP.md`.
-> Última actualización: 2026-08-24.
+> Última actualización: 2026-08-25.
 
-Estado operativo: Fases 0 a 3 completadas e integradas en `main` (PR #2, #3 y
-#4). La Fase 4 está EN CURSO en la rama `phase/4-functional-fixes`: corrección
-funcional respaldada por pruebas, entregada como un único Pull Request con
-commits revisados por el propietario. Regla de vigencia confirmada: el día de
-ingreso cuenta como día 1; solo se corrige documentación, no la aritmética. La
-revocación automática seguirá siendo solo de estado en cliente.
+Estado operativo: Fases 0, 1, 2, 3 y 4 completadas e integradas en `main`.
+La Fase 4 (corrección funcional respaldada por pruebas) fue integrada mediante
+un PR con commits atómicos revisados por el propietario. Regla de vigencia
+confirmada: el día de ingreso cuenta como día 1; solo se corrigió documentación,
+no la aritmética. La revocación automática sigue siendo solo de estado en cliente.
+La Fase 5 (Separación incremental de responsabilidades) está pendiente.
 
 ## Propósito del sistema
 

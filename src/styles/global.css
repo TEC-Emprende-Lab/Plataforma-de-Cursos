@@ -49,20 +49,25 @@
   --black-2:     #2E2820;
   --white:       #FFFFFF;
   --gray:        #6E6553;   /* gris cálido — oscurecido para contraste AA 4.5:1 sobre crema */
-  --border:      #CEBF98;   /* borde — tono arena */
+  --border:      #8A7A52;   /* borde — ≥ 3:1 sobre crema y blanco (1.4.11) */
   --green:       #6E7530;   /* oliva oficial */
   --green-l:     #EAF0D0;   /* oliva claro */
-  --blue:        #8098C8;   /* lavanda oficial — info / IA */
+  --blue:        #8098C8;   /* lavanda oficial — relleno / gráficos, no texto pequeño */
   --blue-l:      #EEF3FF;   /* lavanda claro */
+  --blue-text:   #185FA5;   /* info en texto — AA sobre crema */
+  --orange-text: #A84020;   /* acento en texto/icono — AA sobre crema (el naranja de marca no llega a 4.5:1) */
+  --action:      #D44414;   /* CTA: blanco sobre este fondo ≥ 4.5:1 */
+  --action-hover:#A84020;
+  --action-fg:   #FFFFFF;
 
   /* Tokens semánticos */
-  --surface-brand:        #B85A22;   /* terracota — sidebar en modo claro (§14 dictamen aprobado) */
+  --surface-brand:        #A6511F;   /* terracota un paso más oscuro para muted AA */
   --surface-brand-active: #E4C99A;   /* pastilla del ítem activo sobre superficie de marca */
   --surface-brand-active-text: #4A4A4A;
   --sidebar-bg:     var(--surface-brand);
   --sidebar-text:   #FFFFFF;
-  --sidebar-muted:  rgba(255,255,255,.7);   /* texto secundario del sidebar */
-  --sidebar-border: rgba(255,255,255,.32);
+  --sidebar-muted:  #F2E8D0;   /* ≥ 4.5:1 sobre --surface-brand */
+  --sidebar-border: #E8D8B4;   /* ≥ 3:1 sobre --surface-brand */
   --logo-color:     var(--orange);   /* wordmark: naranja en claro. El sidebar lo sobreescribe a blanco (ver Sidebar.jsx), porque este token también lo usa LoginView sobre fondo crema. */
   --row-hover:    #FDFBF4;
   --row-exp-bg:   #FFF5F0;
@@ -92,7 +97,7 @@
   --cream-2:     #241F16;
   --cream-3:     #2E2818;
   --white:       #1E1A12;   /* superficie de cards */
-  --border:      #3A3220;
+  --border:      #9C9485;
   --black:       #FAF5EC;   /* texto (invertido) */
   --black-2:     #E8D8B4;
   --gray:        #9C9485;
@@ -103,6 +108,11 @@
   --orange:      #ED7B4F;
   --orange-l:    #F49A75;
   --orange-d:    #D9612F;
+  --orange-text: #ED7B4F;
+  --blue-text:   #60A5FA;
+  --action:      #B65D3C;
+  --action-hover:#9A4E32;
+  --action-fg:   #FFFFFF;
 
   /* Ámbar de advertencia en modo oscuro */
   --amber:       #E2A93E;
@@ -115,6 +125,8 @@
   /* Sidebar queda oscuro siempre */
   --sidebar-bg:   #0D0B06;
   --sidebar-text: #FAF5EC;
+  --sidebar-muted: #9C9485;
+  --sidebar-border: #6E6553;
 
   /* Tintes cálidos oscuros */
   --row-hover:    #2A2318;
@@ -197,7 +209,7 @@ svg {
   padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--cream);
+  background: var(--white);
   color: var(--black);
   font-size: 13px;
   font-weight: 400;
@@ -205,7 +217,7 @@ svg {
   transition: border-color .15s;
 }
 .finput:focus { border-color:var(--orange) }
-.finput::placeholder { color:var(--gray); opacity:.7 }
+.finput::placeholder { color:var(--gray) }
 
 /* ── Botones ─────────────────────────────────────────────── */
 .btn {
@@ -217,8 +229,8 @@ svg {
   letter-spacing:.1px;
 }
 .btn-sm     { padding:6px 12px; font-size:12px }
-.btn-orange { background:var(--orange); color:#fff }
-.btn-orange:hover { background:var(--orange-d) }
+.btn-orange { background:var(--action); color:var(--action-fg) }
+.btn-orange:hover { background:var(--action-hover) }
 .btn-black  { background:var(--black); color:var(--cream) }
 .btn-black:hover { background:var(--black-2) }
 .btn-ghost  { background:transparent; color:var(--black); border:1px solid var(--border) }
@@ -232,7 +244,7 @@ svg {
   font-weight:400;
 }
 .btn-icon:hover { background:var(--cream-2) }
-.btn-icon.orange { border-color:var(--orange-l); color:var(--orange) }
+.btn-icon.orange { border-color:var(--orange-d); color:var(--orange-text) }
 .btn-icon.danger { border-color:var(--orange-l); color:var(--orange-d) }
 
 /* ── Focus visible accesible ─────────────────────────────── */
@@ -250,6 +262,10 @@ textarea:focus-visible {
   outline-offset:2px;
   border-color:var(--orange);
 }
+.btn-orange:focus-visible,
+.login-btn:focus-visible {
+  outline-color: var(--black);
+}
 
 /* ── Accesibilidad: lector de pantalla y skip-link ───────── */
 /* Oculta visualmente pero mantiene el contenido para lectores de pantalla */
@@ -261,7 +277,7 @@ textarea:focus-visible {
 /* Enlace "Saltar al contenido": invisible hasta recibir foco por teclado */
 .skip-link {
   position:absolute; left:8px; top:-48px; z-index:1000;
-  background:var(--orange); color:#fff; padding:10px 16px;
+  background:var(--action); color:var(--action-fg); padding:10px 16px;
   border-radius:8px; font-size:14px; font-weight:600;
   text-decoration:none; transition:top .15s;
 }
@@ -279,10 +295,10 @@ textarea:focus-visible {
   font-size:11px; font-weight:500; letter-spacing:.1px;
 }
 .badge-black  { background:var(--black);    color:var(--cream) }
-.badge-orange { background:var(--orange);   color:#fff }
+.badge-orange { background:var(--action);   color:var(--action-fg) }
 .badge-amber  { background:var(--amber-l);  color:var(--amber-d); border:1px solid var(--amber) }
-.badge-gray   { background:var(--cream-3);  color:var(--gray) }
-.badge-red    { background:var(--orange-d); color:#fff }
+.badge-gray   { background:var(--cream-3);  color:var(--black-2) }
+.badge-red    { background:var(--action-hover); color:var(--action-fg) }
 .badge-green  { background:var(--green-l);  color:var(--green) }
 
 /* ── Tabla ───────────────────────────────────────────────── */
@@ -409,7 +425,7 @@ textarea:focus-visible {
 }
 .cmdk-item.active { background:var(--cream-2) }
 .cmdk-icon { font-size:16px; color:var(--gray); flex-shrink:0 }
-.cmdk-item.active .cmdk-icon { color:var(--orange) }
+.cmdk-item.active .cmdk-icon { color:var(--orange-text) }
 .cmdk-text { flex:1; min-width:0 }
 .cmdk-label {
   font-size:13px; font-weight:500; color:var(--black);
@@ -479,7 +495,7 @@ textarea:focus-visible {
   border:1px solid var(--border); color:var(--gray);
   transition:all .15s; margin:3px; font-weight:400;
 }
-.pill.sel { border-color:var(--orange); background:var(--orange); color:#fff; font-weight:500 }
+.pill.sel { border-color:var(--action); background:var(--action); color:var(--action-fg); font-weight:500 }
 
 /* ── Drop area (import) ──────────────────────────────────── */
 .drop-area {
@@ -497,8 +513,8 @@ textarea:focus-visible {
   font-family:var(--font-display);
 }
 .av-cream { background:var(--cream-3); color:var(--gray) }
-.av-warn  { background:#FDE8D3;        color:var(--orange) }
-.av-red   { background:#F4C4B5;        color:var(--orange-d) }
+.av-warn  { background:var(--amber-l); color:var(--orange-d) }
+.av-red   { background:#F4C4B5;        color:#791F1F }
 
 /* ── Toast ───────────────────────────────────────────────── */
 .toast {
@@ -525,9 +541,9 @@ textarea:focus-visible {
 }
 .profile-av {
   width:60px; height:60px; border-radius:50%;
-  background:var(--orange); display:flex;
+  background:var(--action); display:flex;
   align-items:center; justify-content:center;
-  font-size:20px; font-weight:600; color:#fff;
+  font-size:20px; font-weight:600; color:var(--action-fg);
   font-family:var(--font-display); flex-shrink:0;
 }
 
@@ -545,7 +561,7 @@ textarea:focus-visible {
 
 /* ── Sidebar notif dot ───────────────────────────────────── */
 .notif-dot {
-  background:var(--orange); color:#fff;
+  background:var(--action); color:var(--action-fg);
   border-radius:20px; font-size:10px;
   padding:1px 6px; margin-left:auto; font-weight:600;
 }
@@ -579,24 +595,26 @@ textarea:focus-visible {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--cream);
+  background: var(--white);
+  color: var(--black);
   font-size: 13px;
   outline: none;
   transition: border-color .15s;
 }
+.login-field input::placeholder { color: var(--gray) }
 .login-field input:focus { border-color: var(--orange) }
 .login-btn {
   margin-top: 8px;
   padding: 11px;
-  background: var(--orange);
-  color: #fff;
+  background: var(--action);
+  color: var(--action-fg);
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 14px;
   transition: background .15s;
 }
-.login-btn:hover:not(:disabled)    { background: var(--orange-d) }
+.login-btn:hover:not(:disabled)    { background: var(--action-hover) }
 .login-btn:disabled                { opacity: .6; cursor: not-allowed }
 .login-error {
   background: #FCEBEB;
@@ -678,9 +696,9 @@ textarea:focus-visible {
     display:flex; align-items:center; gap:8px; min-width:0;
   }
   .mobile-topbar .mt-logo {
-    width:28px; height:28px; background:var(--orange);
+    width:28px; height:28px; background:var(--action);
     border-radius:6px; display:flex; align-items:center; justify-content:center;
-    color:#fff; font-family:var(--font-display); font-size:13px; flex-shrink:0;
+    color:var(--action-fg); font-family:var(--font-display); font-size:13px; flex-shrink:0;
   }
 
   .main-wrapper { margin-left:0 }
@@ -841,7 +859,7 @@ img, svg, video { max-width:100%; height:auto }
 /* ── Badges de tipo de curso ─────────────────────────────── */
 .type-badge { padding:2px 9px; border-radius:20px; font-size:10px; font-weight:500; border:1px solid }
 .type-badge-curso     { background:#E6F1FB; color:#0C447C; border-color:#185FA5 }
-.type-badge-taller    { background:#FEF0E7; color:#C04E0E; border-color:#E8651A }
+.type-badge-taller    { background:#FEF0E7; color:#A84020; border-color:#A84020 }
 .type-badge-seminario { background:#EEEDFE; color:#3C3489; border-color:#534AB7 }
 .type-badge-bootcamp  { background:#E4F0E8; color:#2A5940; border-color:#3D7A5A }
 .type-badge-charla    { background:#F1EFE8; color:#5F5E5A; border-color:#8A8070 }
@@ -855,7 +873,7 @@ img, svg, video { max-width:100%; height:auto }
 /* ── Correcciones dark mode: componentes con colores fijos ── */
 [data-theme="dark"] .badge-green { background:#252E10; color:#A8B840 }
 [data-theme="dark"] .alert-green { border-color:#2A3010; color:#A8B840 }
-[data-theme="dark"] .login-error { background:#2E1A1A; border-color:#7A2020; color:#FC8181 }
+[data-theme="dark"] .av-red { background:#4A2020; color:#FC8181 }
 
 /* ── Dark mode: overrides Tailwind (CertificatesView, GalleryView) ── */
 
@@ -878,11 +896,11 @@ img, svg, video { max-width:100%; height:auto }
 [data-theme="dark"] .text-gray-700  { color: var(--black-2) !important }
 [data-theme="dark"] .text-stone-600 { color: var(--black-2) !important }
 [data-theme="dark"] .text-stone-500 { color: var(--gray)    !important }
-[data-theme="dark"] .text-stone-400 { color: #7A7268        !important }
-[data-theme="dark"] .text-stone-300 { color: #5A544C        !important }
+[data-theme="dark"] .text-stone-400 { color: var(--gray)    !important }
+[data-theme="dark"] .text-stone-300 { color: var(--gray)    !important }
 [data-theme="dark"] .text-orange-900{ color: #F4894A        !important }
 [data-theme="dark"] .text-orange-800{ color: #F4894A        !important }
-[data-theme="dark"] .text-orange-700{ color: var(--orange-l)!important }
+[data-theme="dark"] .text-orange-700{ color: var(--orange-text)!important }
 [data-theme="dark"] .text-green-800 { color: #6FCF97        !important }
 [data-theme="dark"] .text-green-700 { color: #6FCF97        !important }
 [data-theme="dark"] .text-green-600 { color: #6FCF97        !important }

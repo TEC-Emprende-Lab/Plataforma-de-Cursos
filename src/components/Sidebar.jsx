@@ -74,7 +74,7 @@ export default function Sidebar({ view, setView, participants, courses = [], use
                   borderRadius:8, cursor:'pointer', marginBottom:2, width:'100%',
                   textAlign:'left', border:'none', fontFamily:'inherit',
                   background: isActive ? 'var(--surface-brand-active, var(--orange))' : 'transparent',
-                  transition:'all .15s', color: isActive ? 'var(--surface-brand-active-text, #fff)' : 'var(--sidebar-muted)',
+                  transition:'all .15s', color: isActive ? 'var(--surface-brand-active-text, #fff)' : 'var(--sidebar-text)',
                   fontSize:13, fontWeight: isActive ? 600 : 400 }}>
                 <i className={`ti ${item.icon}`} style={{ fontSize:15 }} aria-hidden="true"/>
                 {item.label}

@@ -29,14 +29,14 @@ const COLOR = {
   cream:    '#FAF6EE',
   cream2:   '#F2EBD9',
   border:   '#D4C8B0',
-  orange:   '#E8651A',
+  orange:   '#D44414',
   orangeL:  '#F4894A',
-  orangeD:  '#C04E0E',
+  orangeD:  '#A84020',
   black:    '#1A1612',
   black2:   '#2E2820',
-  gray:     '#8A8070',
+  gray:     '#6E6553',
   white:    '#FFFFFF',
-  green:    '#3D7A5A',
+  green:    '#2A5940',
   red:      '#A32D2D',
 }
 

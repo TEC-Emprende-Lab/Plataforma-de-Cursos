@@ -221,33 +221,33 @@ export default function ParticipantsView({
       {/* Resultados de verificación por cédula */}
       {verifyResult && (
         <div style={{ margin:'0 0 14px', padding:'12px 16px', borderRadius:10,
-          background: verifyResult.error ? '#fff1f2' : '#f0fdf4',
-          border: `1px solid ${verifyResult.error ? '#fecdd3' : '#bbf7d0'}` }}>
+          background: verifyResult.error ? 'var(--row-exp-bg)' : 'var(--green-l)',
+          border: `1px solid ${verifyResult.error ? 'var(--orange-d)' : 'var(--green)'}` }}>
           {verifyResult.error ? (
-            <p style={{ color:'#be123c', fontSize:13 }}><i className="ti ti-alert-circle"/> {verifyResult.error}</p>
+            <p style={{ color:'var(--orange-d)', fontSize:13 }}><i className="ti ti-alert-circle"/> {verifyResult.error}</p>
           ) : (
             <>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: verifyResult.updates?.length ? 8 : 0 }}>
-                <p style={{ color:'#15803d', fontSize:13, fontWeight:600 }}>
+                <p style={{ color:'var(--green)', fontSize:13, fontWeight:600 }}>
                   <i className="ti ti-check"/> Consultados: {verifyResult.total} · Encontrados: {verifyResult.found}
-                  {verifyResult.noEncontrados > 0 && <span style={{color:'#d97706'}}> · No encontrados: {verifyResult.noEncontrados}</span>}
-                  {verifyResult.extranjerosList?.length > 0 && <span style={{color:'#0369a1'}}> · Extranjeros: {verifyResult.extranjerosList.length}</span>}
+                  {verifyResult.noEncontrados > 0 && <span style={{color:'var(--amber-d)'}}> · No encontrados: {verifyResult.noEncontrados}</span>}
+                  {verifyResult.extranjerosList?.length > 0 && <span style={{color:'var(--blue-text)'}}> · Extranjeros: {verifyResult.extranjerosList.length}</span>}
                   {' · '}Diferencias: {verifyResult.updates?.length || 0}
                 </p>
-                <button onClick={() => setVerifyResult(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'#6b7280', fontSize:16 }}>✕</button>
+                <button onClick={() => setVerifyResult(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--gray)', fontSize:16 }}>✕</button>
               </div>
               {verifyResult.updates?.length > 0 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                   {verifyResult.updates.map(u => (
                     <div key={u.id} style={{ display:'flex', alignItems:'center', gap:8, fontSize:13,
-                      background:'white', padding:'6px 10px', borderRadius:6, border:'1px solid #bbf7d0' }}>
-                      <span style={{ color:'#6b7280', minWidth:90 }}>Céd. {u.cedula}</span>
-                      <span style={{ color:'#ef4444', textDecoration:'line-through' }}>{u.nombreActual}</span>
-                      <i className="ti ti-arrow-right" style={{ color:'#9ca3af' }}/>
-                      <span style={{ color:'#15803d', fontWeight:600 }}>{u.nombreTSE}</span>
+                      background:'var(--white)', padding:'6px 10px', borderRadius:6, border:'1px solid var(--green)' }}>
+                      <span style={{ color:'var(--gray)', minWidth:90 }}>Céd. {u.cedula}</span>
+                      <span style={{ color:'var(--orange-d)', textDecoration:'line-through' }}>{u.nombreActual}</span>
+                      <i className="ti ti-arrow-right" style={{ color:'var(--gray)' }}/>
+                      <span style={{ color:'var(--green)', fontWeight:600 }}>{u.nombreTSE}</span>
                       <button onClick={() => applyUpdate(u.id, u.nombreTSE)}
                         style={{ marginLeft:'auto', padding:'2px 10px', borderRadius:5,
-                          background:'#16a34a', color:'white', border:'none', cursor:'pointer', fontSize:12 }}>
+                          background:'var(--green)', color:'#fff', border:'none', cursor:'pointer', fontSize:12 }}>
                         Actualizar
                       </button>
                     </div>
@@ -255,25 +255,25 @@ export default function ParticipantsView({
                 </div>
               )}
               {verifyResult.updates?.length === 0 && (
-                <p style={{ color:'#15803d', fontSize:13 }}>✓ Todos los nombres coinciden con el Registro Civil.</p>
+                <p style={{ color:'var(--green)', fontSize:13 }}>✓ Todos los nombres coinciden con el Registro Civil.</p>
               )}
 
               {/* No encontrados en el Registro Civil */}
               {verifyResult.noEncontradosList?.length > 0 && (
-                <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid #bbf7d0' }}>
-                  <p style={{ color:'#b45309', fontSize:12, fontWeight:600, marginBottom:6 }}>
+                <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid var(--green)' }}>
+                  <p style={{ color:'var(--amber-d)', fontSize:12, fontWeight:600, marginBottom:6 }}>
                     <i className="ti ti-alert-triangle"/> Sin coincidencia en el Registro Civil ({verifyResult.noEncontradosList.length})
-                    <span style={{ fontWeight:400, color:'#92732b' }}> — revisá la cédula manualmente</span>
+                    <span style={{ fontWeight:400, color:'var(--gray)' }}> — revisá la cédula manualmente</span>
                   </p>
                   <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                     {verifyResult.noEncontradosList.map(n => (
                       <div key={n.id} style={{ display:'flex', alignItems:'center', gap:8, fontSize:13,
-                        background:'#fffbeb', padding:'6px 10px', borderRadius:6, border:'1px solid #fde68a' }}>
-                        <span style={{ color:'#6b7280', minWidth:90 }}>Céd. {n.cedula}</span>
+                        background:'var(--amber-l)', padding:'6px 10px', borderRadius:6, border:'1px solid var(--amber)' }}>
+                        <span style={{ color:'var(--gray)', minWidth:90 }}>Céd. {n.cedula}</span>
                         <span style={{ fontWeight:500 }}>{n.name}</span>
                         <button onClick={() => { setVerifyResult(null); openEdit(participants.find(p => p.id === n.id)) }}
                           style={{ marginLeft:'auto', padding:'2px 10px', borderRadius:5,
-                            background:'#fff', color:'#b45309', border:'1px solid #fde68a', cursor:'pointer', fontSize:12 }}>
+                            background:'var(--white)', color:'var(--amber-d)', border:'1px solid var(--amber)', cursor:'pointer', fontSize:12 }}>
                           <i className="ti ti-edit"/> Revisar
                         </button>
                       </div>
@@ -284,10 +284,10 @@ export default function ParticipantsView({
 
               {/* Extranjeros — sin API, revisión manual */}
               {verifyResult.extranjerosList?.length > 0 && (
-                <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid #bbf7d0' }}>
-                  <p style={{ color:'#0369a1', fontSize:12, fontWeight:600, marginBottom:6 }}>
+                <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid var(--green)' }}>
+                  <p style={{ color:'var(--blue-text)', fontSize:12, fontWeight:600, marginBottom:6 }}>
                     <i className="ti ti-world"/> Identificación extranjera ({verifyResult.extranjerosList.length})
-                    <span style={{ fontWeight:400, color:'#3b6b85' }}> — sin registro automático, revisión manual</span>
+                    <span style={{ fontWeight:400, color:'var(--gray)' }}> — sin registro automático, revisión manual</span>
                   </p>
                   <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                     {verifyResult.extranjerosList.map(n => {
@@ -297,22 +297,22 @@ export default function ParticipantsView({
                         : `"${n.name}" ${n.cedula}`
                       return (
                       <div key={n.id} style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, flexWrap:'wrap',
-                        background:'#f0f9ff', padding:'6px 10px', borderRadius:6, border:'1px solid #bae6fd' }}>
-                        <span style={{ color:'#6b7280', minWidth:90 }}>ID {n.cedula}</span>
+                        background:'var(--blue-l)', padding:'6px 10px', borderRadius:6, border:'1px solid var(--blue-text)' }}>
+                        <span style={{ color:'var(--gray)', minWidth:90 }}>ID {n.cedula}</span>
                         <span style={{ fontWeight:500 }}>{n.name}</span>
-                        <span style={{ fontSize:11, fontWeight:600, color:'#0369a1',
-                          background:'#e0f2fe', border:'1px solid #bae6fd', borderRadius:20, padding:'1px 8px' }}>
+                        <span style={{ fontSize:11, fontWeight:600, color:'var(--blue-text)',
+                          background:'var(--white)', border:'1px solid var(--blue-text)', borderRadius:20, padding:'1px 8px' }}>
                           {n.flag} {n.country}
                         </span>
                         <a href={`https://www.google.com/search?q=${encodeURIComponent(query)}`}
                           target="_blank" rel="noopener noreferrer"
                           style={{ marginLeft:'auto', padding:'2px 10px', borderRadius:5, textDecoration:'none',
-                            background:'#0369a1', color:'#fff', fontSize:12 }}>
+                            background:'var(--blue-text)', color:'#fff', fontSize:12 }}>
                           <i className="ti ti-external-link"/> Buscar en web
                         </a>
                         <button onClick={() => { setVerifyResult(null); openEdit(participants.find(p => p.id === n.id)) }}
                           style={{ padding:'2px 10px', borderRadius:5,
-                            background:'#fff', color:'#0369a1', border:'1px solid #bae6fd', cursor:'pointer', fontSize:12 }}>
+                            background:'var(--white)', color:'var(--blue-text)', border:'1px solid var(--blue-text)', cursor:'pointer', fontSize:12 }}>
                           <i className="ti ti-edit"/> Revisar
                         </button>
                       </div>
@@ -359,7 +359,7 @@ export default function ParticipantsView({
         </select>
         {filtersActive && (
           <button onClick={clearFilters}
-            style={{ background:'none', border:'none', cursor:'pointer', color:'var(--orange)',
+            style={{ background:'none', border:'none', cursor:'pointer', color:'var(--orange-text)',
               fontWeight:600, fontSize:13, fontFamily:'inherit', whiteSpace:'nowrap' }}>
             <i className="ti ti-x" style={{ fontSize:12 }}/> Limpiar filtros
           </button>
@@ -537,7 +537,7 @@ export default function ParticipantsView({
       {/* Resumen real al pie */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:12, marginTop:16 }}>
         {[
-          { icon:'group',    label:'Total activos',   value: totalActivos, color:'var(--orange)' },
+          { icon:'group',    label:'Total activos',   value: totalActivos, color:'var(--orange-text)' },
           { icon:'key',      label:'Con acceso',      value: conAcceso,    color:'var(--green)' },
           { icon:'schedule', label:'Expiran ≤7 días', value: porVencer,    color:'var(--amber)' },
         ].map(s => (

@@ -1,25 +1,24 @@
 # Roadmap de mejora progresiva
 
 > Fuente principal de verdad para la mejora de `Plataforma-de-Cursos`.
-> Última actualización: 2026-08-24.
+> Última actualización: 2026-08-25.
 
 ## Estado operativo actual
 
-**FASES 0, 1, 2 Y 3 COMPLETADAS — FASE 4 EN CURSO.**
+**FASES 0, 1, 2, 3 Y 4 COMPLETADAS.**
 
 Las Fases 2 y 3 fueron integradas en `main` mediante los PR #2 y #3. Las
 correcciones de validación posterior de Fase 3 fueron integradas mediante el
-PR #4 (`phase/3-validation`), ya mergeado en `main`. Antes de desplegar el
-frontend que invoca `bulk_update_participants_with_courses` debe aplicarse la
-migración `20260819000000_harden_participant_transactions.sql` en Supabase
-remoto.
+PR #4 (`phase/3-validation`), ya mergeado en `main`. La Fase 4 fue integrada
+en `main` mediante un PR con commits atómicos revisados por el propietario.
+Antes de desplegar el frontend que invoca `bulk_update_participants_with_courses`
+debe aplicarse la migración `20260819000000_harden_participant_transactions.sql`
+en Supabase remoto.
 
-La Fase 4 se ejecuta en la rama `phase/4-functional-fixes` como un único Pull
-Request al cierre, con commits atómicos revisados por el propietario antes de
-cada commit. Decisiones previas registradas: se mantiene la aritmética de
-vigencia vigente (el día de ingreso cuenta como día 1) corrigiendo solo
-documentación; la revocación automática seguirá cambiando únicamente el estado
-en cliente, sin escrituras a base de datos durante la carga.
+Decisiones previas registradas: se mantiene la aritmética de vigencia vigente
+(el día de ingreso cuenta como día 1) corrigiendo solo documentación; la
+revocación automática seguirá cambiando únicamente el estado en cliente, sin
+escrituras a base de datos durante la carga.
 
 ## 1. Objetivo y reglas innegociables
 
@@ -182,7 +181,7 @@ Validación de salida:
 
 ### Fase 4 — Corrección funcional respaldada por pruebas
 
-Estado: **EN CURSO** (rama `phase/4-functional-fixes`)
+Estado: **COMPLETADA** (rama `phase/4-functional-fixes`)
 Depende de: Fases 1 y 3.
 
 Regla de vigencia confirmada por el propietario (2026-08-24): la aritmética
@@ -300,15 +299,11 @@ Validación de salida:
 - La migración `20260812000000_secure_svg_templates.sql` debe aplicarse junto con el despliegue backend. Antes de desplegar, Render necesita `SUPABASE_SERVICE_ROLE_KEY`, `CORS_ALLOWED_ORIGINS` y `RATELIMIT_STORAGE_URI`; nunca exponer la service role al frontend.
 - La validación posterior al merge de Fase 3 encontró que los hooks devolvían errores correctamente, pero varios callers todavía cerraban diálogos o mostraban éxito sin esperar la promesa. La corrección conserva los adapters de Ximena y hace que la UI respete su contrato.
 - `20260819000000_harden_participant_transactions.sql` debe aplicarse antes de desplegar el frontend que usa `bulk_update_participants_with_courses`; no modificar ni reescribir la migración original ya integrada.
+- Se realizaron 3 mejoras UX no planificadas en fase (2026-08-25): (a) `AccessBar` en `UI.jsx` ahora muestra días transcurridos de total (`12d de 45d`) en vez de porcentaje (`26% de 45d`), que resultaba confuso; (b) el formulario de nueva etiqueta en `TagsView.jsx` se destaca con borde superior naranja, título más grande en color y ícono `+`; (c) `ColorPicker.jsx` obtiene fondo `cream-3` con borde para que los colores claros (especialmente `gray`) no se confundan con el fondo de la app. Estas mejoras no alteran contratos de datos ni lógica funcional; se documentan en `docs/DESIGN_SYSTEM.md`.
 
 ## 8. Siguiente paso ejecutable
 
-Ejecutar los commits de la Fase 4 en `phase/4-functional-fixes`, revisados por
-el propietario antes de cada commit, en este orden: (1) fecha en tiempo de
-llamada; (2) vigencia unificada por curso y clasificación de participantes sin
-acceso; (3) cursos en utilidades de recordatorio; (4) validaciones equivalentes
-local/Supabase; (5) vista previa de exportación y cierre de hallazgos de
-`docs/checkGeneral.md`. Al cierre: abrir un único Pull Request con lint, tests
-y build verdes, revisión independiente y confirmación del propietario. La
-migración `20260819000000_harden_participant_transactions.sql` debe aplicarse
+Arrancar la Fase 5 (Separación incremental de responsabilidades) en una rama
+dedicada desde `main`. Primer paso: extraer configuración y creación de la app
+Flask sin cambiar rutas. Aplicar la migración `20260819000000_harden_participant_transactions.sql`
 en Supabase remoto antes de desplegar el frontend resultante.

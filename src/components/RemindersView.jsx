@@ -20,7 +20,7 @@ function EmailModal({ participant, courses, onClose }) {
   return (
     <Modal onClose={onClose} width={640}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18}}>
-        <h3 className="h2"><i className="ti ti-mail" style={{color:'var(--orange)',marginRight:8}}/>Correo recordatorio</h3>
+        <h3 className="h2"><i className="ti ti-mail" style={{color:'var(--orange-text)',marginRight:8}}/>Correo recordatorio</h3>
         <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'var(--gray)',fontSize:18}}><i className="ti ti-x"/></button>
       </div>
       <div className="email-preview">

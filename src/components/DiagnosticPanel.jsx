@@ -21,10 +21,10 @@ const MODULES = [
 
 function scoreColor(score) {
   if (score <= 20) return 'var(--orange-d)'
-  if (score <= 40) return 'var(--orange)'
-  if (score <= 60) return '#F07040'
+  if (score <= 40) return 'var(--orange-text)'
+  if (score <= 60) return 'var(--amber)'
   if (score <= 80) return 'var(--green)'
-  return 'var(--lavender, #8098C8)'
+  return 'var(--blue-text)'
 }
 
 function ScoreBar({ value, baseline }) {
@@ -163,7 +163,7 @@ export default function DiagnosticPanel({ cedula }) {
           {/* Recomendación IA */}
           {d.recommendation && (
             <div style={{ marginTop: 10, padding: '8px 10px', background: 'var(--cream)', borderRadius: 6, border: '1px solid var(--border, #CEBF98)', borderLeft: '3px solid var(--orange)' }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--orange)', textTransform: 'uppercase', letterSpacing: .4, marginBottom: 4 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--orange-text)', textTransform: 'uppercase', letterSpacing: .4, marginBottom: 4 }}>
                 Recomendación IA
               </div>
               <p style={{ fontSize: 12, color: 'var(--black)', lineHeight: 1.5, margin: 0 }}>{d.recommendation}</p>
