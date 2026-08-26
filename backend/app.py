@@ -20,7 +20,6 @@ import csv
 import logging
 import uuid
 from pathlib import Path
-from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 
 from flask import Flask, request, jsonify, send_file, Response, g
@@ -30,6 +29,7 @@ from flask_limiter.errors import RateLimitExceeded
 from flask_limiter.util import get_remote_address
 from werkzeug.exceptions import RequestEntityTooLarge
 from auth import AuthConfig, AuthError, SupabaseJWTVerifier
+from config import AppConfig
 from svg_security import PUBLIC_ERROR as SVG_PUBLIC_ERROR
 from svg_security import SvgValidationError, validate_svg
 from template_storage import (
@@ -111,69 +111,31 @@ def _install_repo_fonts():
 _install_repo_fonts()
 
 
-def _positive_int_env(name: str, default: int) -> int:
-    try:
-        value = int(os.getenv(name, str(default)))
-    except (TypeError, ValueError):
-        return default
-    return value if value > 0 else default
-
-
-APP_ENV = os.getenv("APP_ENV", "production").strip().lower()
-if APP_ENV not in {"production", "development", "test"}:
-    raise RuntimeError("APP_ENV debe ser production, development o test")
+APP_CONFIG = AppConfig.from_env()
+APP_ENV = APP_CONFIG.app_env
 AUTH_CONFIG = AuthConfig.from_env()
 AUTH_VERIFIER = SupabaseJWTVerifier(AUTH_CONFIG)
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
-if APP_ENV == "production" and not SUPABASE_SERVICE_ROLE_KEY:
-    raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY es obligatorio en producción")
+SUPABASE_SERVICE_ROLE_KEY = APP_CONFIG.supabase_service_role_key
 TEMPLATE_STORE = (
     SupabaseTemplateStore(AUTH_CONFIG.supabase_url, SUPABASE_SERVICE_ROLE_KEY)
     if AUTH_CONFIG.supabase_url and SUPABASE_SERVICE_ROLE_KEY
     else None
 )
-MAX_BATCH_ROWS = _positive_int_env("MAX_BATCH_ROWS", 200)
-MAX_CEDULAS = _positive_int_env("MAX_CEDULAS", 200)
-MAX_CSV_BYTES = _positive_int_env("MAX_CSV_BYTES", 1024 * 1024)
-RATE_LIMIT_ANALYZE = os.getenv("RATE_LIMIT_ANALYZE", "30 per minute")
-RATE_LIMIT_PREVIEW = os.getenv("RATE_LIMIT_PREVIEW", "30 per minute")
-RATE_LIMIT_GENERATE = os.getenv("RATE_LIMIT_GENERATE", "10 per minute")
-RATE_LIMIT_BATCH = os.getenv("RATE_LIMIT_BATCH", "2 per minute")
-RATE_LIMIT_AI = os.getenv("RATE_LIMIT_AI", "5 per minute")
-RATE_LIMIT_CEDULAS = os.getenv("RATE_LIMIT_CEDULAS", "10 per minute")
-RATE_LIMIT_TEMPLATES = os.getenv("RATE_LIMIT_TEMPLATES", "5 per minute")
-
-allowed_origins = [
-    origin.strip()
-    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
-    if origin.strip()
-]
-
-
-def _is_valid_cors_origin(origin: str) -> bool:
-    parsed = urlparse(origin)
-    if origin == "*" or parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        return False
-    if parsed.path not in {"", "/"} or parsed.params or parsed.query or parsed.fragment:
-        return False
-    return APP_ENV != "production" or parsed.scheme == "https"
-
-
-if any(not _is_valid_cors_origin(origin) for origin in allowed_origins):
-    raise RuntimeError("CORS_ALLOWED_ORIGINS contiene un origen inválido")
-if not allowed_origins and APP_ENV == "production":
-    raise RuntimeError("CORS_ALLOWED_ORIGINS es obligatorio en producción")
-if not allowed_origins:
-    allowed_origins = ["http://localhost:5173"]
-
-rate_storage_uri = os.getenv("RATELIMIT_STORAGE_URI", "").strip()
-if APP_ENV == "production" and not rate_storage_uri:
-    raise RuntimeError("RATELIMIT_STORAGE_URI es obligatorio en producción")
-if APP_ENV == "production" and urlparse(rate_storage_uri).scheme not in {"redis", "rediss"}:
-    raise RuntimeError("RATELIMIT_STORAGE_URI debe usar Redis en producción")
+MAX_BATCH_ROWS = APP_CONFIG.max_batch_rows
+MAX_CEDULAS = APP_CONFIG.max_cedulas
+MAX_CSV_BYTES = APP_CONFIG.max_csv_bytes
+RATE_LIMIT_ANALYZE = APP_CONFIG.rate_limit_analyze
+RATE_LIMIT_PREVIEW = APP_CONFIG.rate_limit_preview
+RATE_LIMIT_GENERATE = APP_CONFIG.rate_limit_generate
+RATE_LIMIT_BATCH = APP_CONFIG.rate_limit_batch
+RATE_LIMIT_AI = APP_CONFIG.rate_limit_ai
+RATE_LIMIT_CEDULAS = APP_CONFIG.rate_limit_cedulas
+RATE_LIMIT_TEMPLATES = APP_CONFIG.rate_limit_templates
+allowed_origins = APP_CONFIG.allowed_origins
+rate_storage_uri = APP_CONFIG.rate_storage_uri
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = _positive_int_env("MAX_REQUEST_BYTES", 10 * 1024 * 1024)
+app.config["MAX_CONTENT_LENGTH"] = APP_CONFIG.max_request_bytes
 CORS(
     app,
     resources={"/api/*": {"origins": allowed_origins}},

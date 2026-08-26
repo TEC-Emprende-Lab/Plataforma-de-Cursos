@@ -1,14 +1,15 @@
 # Contexto técnico persistente de la codebase
 
 > Mapa de orientación rápida. No reemplaza al código ni a `ROADMAP.md`.
-> Última actualización: 2026-08-25.
+> Última actualización: 2026-08-26.
 
 Estado operativo: Fases 0, 1, 2, 3 y 4 completadas e integradas en `main`.
 La Fase 4 (corrección funcional respaldada por pruebas) fue integrada mediante
-un PR con commits atómicos revisados por el propietario. Regla de vigencia
+los PR #5 y #6 con commits revisados por el propietario. Regla de vigencia
 confirmada: el día de ingreso cuenta como día 1; solo se corrigió documentación,
 no la aritmética. La revocación automática sigue siendo solo de estado en cliente.
-La Fase 5 (Separación incremental de responsabilidades) está pendiente.
+La Fase 5 (Separación incremental de responsabilidades) está en curso en
+`phase/5-flask-structure`; su primer corte extrajo la configuración de Flask.
 
 ## Propósito del sistema
 
@@ -36,7 +37,7 @@ Supabase es la fuente de verdad. El modo `localStorage` debe quedar explícitame
 
 - Frontend HTML: `index.html`.
 - Frontend React: `src/main.jsx` → `src/App.jsx`.
-- Backend Flask: `backend/app.py`.
+- Backend Flask: `backend/app.py`; configuración validada en `backend/config.py`.
 - Configuración frontend externa: `src/config.js`.
 - Selección/validación de persistencia: `src/lib/config.js`.
 - Cliente Supabase: `src/lib/supabase.js`.
@@ -58,6 +59,7 @@ src/
   data/                    Constantes y datos iniciales del modo local.
 backend/
   app.py                   API Flask monolítica actual.
+  config.py                Entorno, límites, CORS y cuotas validados.
   auth.py                  Verificación ES256/JWKS de sesiones Supabase.
   svg_security.py          Frontera de validación de SVG y CSS.
   template_storage.py      Escritura confiable de plantillas mediante service role.
@@ -289,15 +291,15 @@ GitHub Actions ejecuta actualmente análisis ESLint/Semgrep y Trivy/TruffleHog e
 Red de pruebas disponible:
 
 ```text
-npm test          # 51 pruebas Vitest frontend
+npm test          # 78 pruebas Vitest frontend
 npm run lint      # 0 errores; 14 advertencias conocidas
 npm run build     # build de producción
 
 cd backend
-# Recrear el entorno si no existe .venv en la raíz:
-python -m venv ../.venv
-../.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
-../.venv/Scripts/python.exe -m pytest   # 104 pruebas backend
+# Recrear el entorno si no existe backend/.venv:
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
+.venv/Scripts/python.exe -m pytest   # 108 pruebas backend
 ```
 
 Las pruebas backend bloquean red y efectos laterales, simulan Cairo y no usan

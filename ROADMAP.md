@@ -1,7 +1,7 @@
 # Roadmap de mejora progresiva
 
 > Fuente principal de verdad para la mejora de `Plataforma-de-Cursos`.
-> Última actualización: 2026-08-25.
+> Última actualización: 2026-08-26.
 
 ## Estado operativo actual
 
@@ -10,7 +10,7 @@
 Las Fases 2 y 3 fueron integradas en `main` mediante los PR #2 y #3. Las
 correcciones de validación posterior de Fase 3 fueron integradas mediante el
 PR #4 (`phase/3-validation`), ya mergeado en `main`. La Fase 4 fue integrada
-en `main` mediante un PR con commits atómicos revisados por el propietario.
+en `main` mediante los PR #5 y #6, con commits revisados por el propietario.
 Antes de desplegar el frontend que invoca `bulk_update_participants_with_courses`
 debe aplicarse la migración `20260819000000_harden_participant_transactions.sql`
 en Supabase remoto.
@@ -203,10 +203,11 @@ Validación de salida:
 
 ### Fase 5 — Separación incremental de responsabilidades
 
-Estado: **PENDIENTE**
+Estado: **EN CURSO** (rama `phase/5-flask-structure`)
 Depende de: Fases 1 a 4.
 
-- [ ] Extraer configuración y creación de la app Flask sin cambiar rutas.
+- [x] Extraer y probar la lectura de configuración Flask sin cambiar contratos públicos.
+- [ ] Extraer la creación de la app Flask sin cambiar rutas.
 - [ ] Extraer servicios determinísticos de SVG, CSV, IA y consulta de cédulas en pasos pequeños.
 - [ ] Dividir `CertificatesView.jsx` por pestaña y responsabilidad, preservando props y comportamiento.
 - [ ] Centralizar cliente HTTP de certificados, autenticación y manejo de errores.
@@ -281,6 +282,7 @@ Validación de salida:
 | 2026-08-24 | Fase 4 | Validaciones equivalentes entre modos (commit 5) | Nuevo `utils/validators.js` (correo, teléfono, cédula, duplicados de correo y etiquetas) adoptado por `ImportView`, `ParticipantModal` (formato + duplicado con errores inline), `TagsView` (trim y duplicados insensibles a mayúsculas) y ambos adapters de etiquetas; el adapter local de participantes ahora normaliza cédula y trima texto igual que Supabase. El chequeo de correo duplicado queda en la capa compartida de UI, no en adapters. Suites: 78 pruebas Vitest (13 archivos), lint 0 errores/14 advertencias, build OK. |
 | 2026-08-24 | Fase 4 | Vista previa de exportación y cierre de checkGeneral (commit 6) | La tabla de vista previa usa `colgroup` con anchos fijos y la clase `tpreview` (`overflow-wrap:anywhere`) para que correo y cursos largos se envuelvan sin invadir columnas, en escritorio y en todos los breakpoints. La celda de cursos de la tabla de participantes dejó de truncar con puntos suspensivos y ahora continúa hacia abajo con la misma estrategia. Los seis hallazgos de `docs/checkGeneral.md` se reprodujeron antes y se verificó su corrección después: cinco ya resueltos por los commits 2-5 y este último en commit 6; el documento registra el estado final por hallazgo. Suites: 78 pruebas Vitest, lint 0 errores/14 advertencias, build OK. |
 | 2026-08-24 | Fase 4 | Alineación de insignia y PDF con la semántica canónica (commit 7) | Revisión previa al PR detectó que `TimerBadge` y el listado completo del PDF evaluaban `!access` antes que la fecha, contradiciendo a listas y métricas para un vencido con marca apagada. Ambos usan ahora la precedencia de `classifyAccess` (fecha manda, decisión D-007); se corrigió además una redacción errónea del cierre del hallazgo 2 en `docs/checkGeneral.md`. Suites: 78 pruebas Vitest, lint 0 errores/14 advertencias, build OK. |
+| 2026-08-26 | Fase 5 | Primer corte de configuración Flask | Se creó `backend/config.py` con carga y validación aisladas de entorno, límites, CORS y rate limiting; `app.py` conserva sus exports y rutas. Pasan 108 pruebas pytest y 78 pruebas Vitest; lint conserva 0 errores/14 advertencias conocidas y build pasa con la advertencia preexistente de chunks grandes. |
 
 ## 7. Problemas y cambios respecto al plan
 
@@ -303,7 +305,7 @@ Validación de salida:
 
 ## 8. Siguiente paso ejecutable
 
-Arrancar la Fase 5 (Separación incremental de responsabilidades) en una rama
-dedicada desde `main`. Primer paso: extraer configuración y creación de la app
-Flask sin cambiar rutas. Aplicar la migración `20260819000000_harden_participant_transactions.sql`
+Continuar la Fase 5 en `phase/5-flask-structure`: extraer la creación de la app
+Flask sin mover rutas y conservando los exports `app` y `limiter`.
+Aplicar la migración `20260819000000_harden_participant_transactions.sql`
 en Supabase remoto antes de desplegar el frontend resultante.
