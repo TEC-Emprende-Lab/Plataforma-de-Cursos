@@ -1,7 +1,7 @@
 # Roadmap de mejora progresiva
 
 > Fuente principal de verdad para la mejora de `Plataforma-de-Cursos`.
-> Última actualización: 2026-08-26.
+> Última actualización: 2026-09-01.
 
 ## Estado operativo actual
 
@@ -207,8 +207,8 @@ Estado: **EN CURSO** (rama `phase/5-flask-structure`)
 Depende de: Fases 1 a 4.
 
 - [x] Extraer y probar la lectura de configuración Flask sin cambiar contratos públicos.
-- [ ] Extraer la creación de la app Flask sin cambiar rutas.
-- [ ] Extraer servicios determinísticos de SVG, CSV, IA y consulta de cédulas en pasos pequeños.
+- [x] Extraer la creación de la app Flask sin cambiar rutas.
+- [x] Extraer servicios determinísticos de SVG, CSV, IA y consulta de cédulas en pasos pequeños.
 - [ ] Dividir `CertificatesView.jsx` por pestaña y responsabilidad, preservando props y comportamiento.
 - [ ] Centralizar cliente HTTP de certificados, autenticación y manejo de errores.
 - [ ] Reemplazar detección frágil de plantilla por metadata explícita mediante migración compatible.
@@ -283,6 +283,8 @@ Validación de salida:
 | 2026-08-24 | Fase 4 | Vista previa de exportación y cierre de checkGeneral (commit 6) | La tabla de vista previa usa `colgroup` con anchos fijos y la clase `tpreview` (`overflow-wrap:anywhere`) para que correo y cursos largos se envuelvan sin invadir columnas, en escritorio y en todos los breakpoints. La celda de cursos de la tabla de participantes dejó de truncar con puntos suspensivos y ahora continúa hacia abajo con la misma estrategia. Los seis hallazgos de `docs/checkGeneral.md` se reprodujeron antes y se verificó su corrección después: cinco ya resueltos por los commits 2-5 y este último en commit 6; el documento registra el estado final por hallazgo. Suites: 78 pruebas Vitest, lint 0 errores/14 advertencias, build OK. |
 | 2026-08-24 | Fase 4 | Alineación de insignia y PDF con la semántica canónica (commit 7) | Revisión previa al PR detectó que `TimerBadge` y el listado completo del PDF evaluaban `!access` antes que la fecha, contradiciendo a listas y métricas para un vencido con marca apagada. Ambos usan ahora la precedencia de `classifyAccess` (fecha manda, decisión D-007); se corrigió además una redacción errónea del cierre del hallazgo 2 en `docs/checkGeneral.md`. Suites: 78 pruebas Vitest, lint 0 errores/14 advertencias, build OK. |
 | 2026-08-26 | Fase 5 | Primer corte de configuración Flask | Se creó `backend/config.py` con carga y validación aisladas de entorno, límites, CORS y rate limiting; `app.py` conserva sus exports y rutas. Pasan 108 pruebas pytest y 78 pruebas Vitest; lint conserva 0 errores/14 advertencias conocidas y build pasa con la advertencia preexistente de chunks grandes. |
+| 2026-09-01 | Fase 5 | Segundo corte: factory de app Flask | Se creó `backend/app_factory.py` con `_rate_limit_key()` y `create_app(config)`, que construye la app Flask (MAX_CONTENT_LENGTH), el CORS y el Limiter sin registrar rutas. `app.py` invoca `app, limiter = create_app(APP_CONFIG)` y conserva exports `app`/`limiter`, middleware, error handlers y todas las rutas; el CMD de Gunicorn sigue siendo `app:app`. Se añadió `tests/test_app_factory.py`. Pasan 113 pruebas pytest (108 + 5 nuevas) y 78 pruebas Vitest; lint 0 errores/14 advertencias y build con la advertencia preexistente. |
+| 2026-09-01 | Fase 5 | Tercer corte: servicios determinísticos en `backend/services/` | Se extrajeron los helpers determinísticos de `app.py` a `backend/services/`: `svg.py` (helpers de llenado/detección/corrección/embedding/conversión a PNG/PDF + `CAIRO_OK`/`TEMPLATES_DIR`), `csv.py` (resolución de columnas y sinónimos), `ai.py` (cliente IA `AI_CLIENT`/`AI_OK` y corrección de tildes) y `cedulas.py` (consulta por cédula). `app.py` re-exporta los símbolos (facade) para que las rutas y los tests que acceden vía `backend_module.<símbolo>` sigan funcionando; el CMD `app:app` se conserva. Pasan 113 pruebas pytest, 78 pruebas Vitest; lint 0 errores/14 advertencias. |
 
 ## 7. Problemas y cambios respecto al plan
 
@@ -305,7 +307,8 @@ Validación de salida:
 
 ## 8. Siguiente paso ejecutable
 
-Continuar la Fase 5 en `phase/5-flask-structure`: extraer la creación de la app
-Flask sin mover rutas y conservando los exports `app` y `limiter`.
+Continuar la Fase 5 en `phase/5-flask-structure`: el siguiente corte es dividir
+`CertificatesView.jsx` por pestaña y responsabilidad, preservando props y
+comportamiento.
 Aplicar la migración `20260819000000_harden_participant_transactions.sql`
 en Supabase remoto antes de desplegar el frontend resultante.

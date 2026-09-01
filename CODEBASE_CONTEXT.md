@@ -1,7 +1,7 @@
 # Contexto técnico persistente de la codebase
 
 > Mapa de orientación rápida. No reemplaza al código ni a `ROADMAP.md`.
-> Última actualización: 2026-08-26.
+> Última actualización: 2026-09-01.
 
 Estado operativo: Fases 0, 1, 2, 3 y 4 completadas e integradas en `main`.
 La Fase 4 (corrección funcional respaldada por pruebas) fue integrada mediante
@@ -9,7 +9,9 @@ los PR #5 y #6 con commits revisados por el propietario. Regla de vigencia
 confirmada: el día de ingreso cuenta como día 1; solo se corrigió documentación,
 no la aritmética. La revocación automática sigue siendo solo de estado en cliente.
 La Fase 5 (Separación incremental de responsabilidades) está en curso en
-`phase/5-flask-structure`; su primer corte extrajo la configuración de Flask.
+`phase/5-flask-structure`; sus tres primeros cortes extrajeron la configuración
+de Flask (`config.py`), la creación de la app (`app_factory.py`) y los
+servicios determinísticos (`backend/services/`).
 
 ## Propósito del sistema
 
@@ -58,11 +60,17 @@ src/
   utils/                   Fechas, cédulas, correo, PDF, Excel/CSV, concurrencia y validaciones de formulario (`validators.js`, fuente única de formatos para modal, CSV y adapters).
   data/                    Constantes y datos iniciales del modo local.
 backend/
-  app.py                   API Flask monolítica actual.
+  app.py                   API Flask actual; registra rutas, middleware y handlers, y re-exporta los símbolos de los servicios (facade).
   config.py                Entorno, límites, CORS y cuotas validados.
+  app_factory.py           `create_app(config)` construye la app Flask, el CORS y el Limiter sin registrar rutas.
   auth.py                  Verificación ES256/JWKS de sesiones Supabase.
   svg_security.py          Frontera de validación de SVG y CSS.
   template_storage.py      Escritura confiable de plantillas mediante service role.
+  services/                Helpers determinísticos por responsabilidad.
+    svg.py                 Transformación/render de SVG, embedding de fuentes, detección y conversión PNG/PDF.
+    csv.py                 Resolución de columnas CSV (sinónimos y fuzzy).
+    ai.py                  Cliente IA y corrección de tildes en nombres.
+    cedulas.py             Consulta de nombres por cédula en servicios del estado.
   templates/               SVG incorporados y firma.
   fonts/                   Fuentes usadas al renderizar certificados.
   requirements.txt         Dependencias Python de producción.
@@ -205,6 +213,20 @@ y cursos posteriores a una importación se confirmen o reviertan juntos.
 
 ## Backend Flask
 
+La app se construye con `app_factory.create_app(config)`, que crea el objeto
+`Flask`, el CORS y el Limiter sin registrar rutas. `app.py` la invoca en tiempo
+de importación (`app, limiter = create_app(APP_CONFIG)`) y sobre esos objetos
+registra middleware, error handlers y todas las rutas. Gunicorn arranca con
+`app:app`, así que `app.py` debe conservar `app` y `limiter` como instancias de
+nivel de módulo.
+
+La lógica determinística vive en `backend/services/` (`svg.py`, `csv.py`,
+`ai.py`, `cedulas.py`). `app.py` re-exporta los símbolos de esos módulos
+(estrategia facade) para que las rutas y los tests que acceden vía
+`backend_module.<símbolo>` sigan funcionando con los mismos nombres; los
+monkeypatches de los tests se aplican sobre el namespace de `app.py` y se
+resuelven en tiempo de llamada.
+
 Rutas actuales:
 
 | Método | Ruta | Responsabilidad |
@@ -299,7 +321,7 @@ cd backend
 # Recrear el entorno si no existe backend/.venv:
 python -m venv .venv
 .venv/Scripts/python.exe -m pip install -r requirements-dev.txt
-.venv/Scripts/python.exe -m pytest   # 108 pruebas backend
+.venv/Scripts/python.exe -m pytest   # 113 pruebas backend
 ```
 
 Las pruebas backend bloquean red y efectos laterales, simulan Cairo y no usan
