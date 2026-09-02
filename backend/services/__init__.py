@@ -1,5 +1,5 @@
-"""Servicios determinísticos del backend de certificados.
+"""Servicios del backend de certificados.
 
-Agrupa la lógica reutilizable (SVG, CSV, IA y cédulas) en módulos por
-responsabilidad, sin dependencias circulares entre ellos.
+`svg`, `csv`, `ai` y `cedulas` son dominio determinístico. `certificates`
+orquesta generación individual y por lote. No hay dependencias circulares.
 """

@@ -54,3 +54,26 @@ def _lookup_cedula(cedula: str) -> str | None:
 
     _cedula_cache[cedula] = None
     return None
+
+
+def lookup_many(cedulas, max_cedulas: int) -> list[dict]:
+    """Resuelve una lista de cédulas a nombres oficiales."""
+    from services.errors import ServiceError
+
+    if not cedulas or not isinstance(cedulas, list):
+        raise ServiceError("Enviá un JSON con campo 'cedulas' como lista")
+    if len(cedulas) > max_cedulas:
+        raise ServiceError(
+            f"La consulta admite como máximo {max_cedulas} cédulas.",
+            code="too_many_cedulas",
+        )
+
+    results = []
+    for ced in cedulas:
+        nombre = _lookup_cedula(str(ced))
+        results.append({
+            "cedula": str(ced),
+            "nombre": nombre,
+            "ok": nombre is not None,
+        })
+    return results

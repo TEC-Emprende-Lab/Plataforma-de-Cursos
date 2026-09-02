@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 from auth import AuthRequiredError
 from auth import AuthIdentity
+import runtime
 
 
 SIMPLE_SVG = b"""<svg xmlns="http://www.w3.org/2000/svg">
@@ -107,7 +108,7 @@ def test_template_upload_validates_before_trusted_storage(
         create=lambda svg, filename, metadata: stored.append((svg, filename, metadata))
         or {"id": "saved-template", **metadata, "storage_path": "templates/safe.svg"}
     )
-    monkeypatch.setattr(backend_module, "TEMPLATE_STORE", store)
+    monkeypatch.setattr(runtime, "template_store", store)
 
     malicious = client.post(
         "/api/templates/upload",
@@ -137,8 +138,8 @@ def test_template_delete_resolves_id_through_trusted_store(
 ):
     deleted = []
     monkeypatch.setattr(
-        backend_module,
-        "TEMPLATE_STORE",
+        runtime,
+        "template_store",
         SimpleNamespace(delete=lambda template_id: deleted.append(template_id)),
     )
 
@@ -153,7 +154,7 @@ def test_template_delete_resolves_id_through_trusted_store(
 
 
 def test_batch_rejects_more_than_configured_rows(client, backend_module, monkeypatch):
-    monkeypatch.setattr(backend_module, "MAX_BATCH_ROWS", 2)
+    monkeypatch.setattr(runtime, "max_batch_rows", 2)
     response = client.post(
         "/api/generate/batch",
         data=_svg_form(csv_data="Nombre\nAna\nLuis\nEva\n"),
@@ -165,7 +166,7 @@ def test_batch_rejects_more_than_configured_rows(client, backend_module, monkeyp
 
 
 def test_batch_rejects_oversized_csv(client, backend_module, monkeypatch):
-    monkeypatch.setattr(backend_module, "MAX_CSV_BYTES", 10)
+    monkeypatch.setattr(runtime, "max_csv_bytes", 10)
     response = client.post(
         "/api/generate/batch",
         data=_svg_form(csv_data="Nombre\nNombre demasiado largo\n"),
@@ -179,10 +180,9 @@ def test_batch_rejects_oversized_csv(client, backend_module, monkeypatch):
 def test_cedula_lookup_rejects_instead_of_silently_truncating(
     client, backend_module, monkeypatch
 ):
-    monkeypatch.setattr(backend_module, "MAX_CEDULAS", 2)
+    monkeypatch.setattr(runtime, "max_cedulas", 2)
     monkeypatch.setattr(
-        backend_module,
-        "_lookup_cedula",
+        "services.cedulas._lookup_cedula",
         lambda _cedula: (_ for _ in ()).throw(AssertionError("must not call external API")),
     )
 
@@ -197,10 +197,9 @@ def test_cedula_lookup_rejects_instead_of_silently_truncating(
 def test_generation_error_does_not_expose_internal_exception(
     client, backend_module, monkeypatch
 ):
-    monkeypatch.setattr(backend_module, "CAIRO_OK", True)
+    monkeypatch.setattr("services.svg.CAIRO_OK", True)
     monkeypatch.setattr(
-        backend_module,
-        "_svg_to_output",
+        "services.svg._svg_to_output",
         lambda *_args: (_ for _ in ()).throw(RuntimeError("SECRET filesystem path")),
     )
 
@@ -218,10 +217,9 @@ def test_generation_error_does_not_expose_internal_exception(
 def test_batch_error_file_does_not_expose_fields_or_exception(
     client, backend_module, monkeypatch
 ):
-    monkeypatch.setattr(backend_module, "CAIRO_OK", True)
+    monkeypatch.setattr("services.svg.CAIRO_OK", True)
     monkeypatch.setattr(
-        backend_module,
-        "_svg_to_output",
+        "services.svg._svg_to_output",
         lambda *_args: (_ for _ in ()).throw(RuntimeError("SECRET renderer")),
     )
     response = client.post(

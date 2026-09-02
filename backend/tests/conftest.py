@@ -1,12 +1,23 @@
 import importlib.util
 import os
-import subprocess
 import sys
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import ModuleType
 from unittest.mock import patch
 
 import pytest
+
+# Install a Cairo stub before any test module imports services.svg.
+_fake_cairosvg = ModuleType("cairosvg")
+
+
+def _forbid_cairo_rendering(*_args, **_kwargs):
+    raise AssertionError("Cairo rendering must be replaced explicitly in tests")
+
+
+_fake_cairosvg.svg2png = _forbid_cairo_rendering
+_fake_cairosvg.svg2pdf = _forbid_cairo_rendering
+sys.modules["cairosvg"] = _fake_cairosvg
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -15,12 +26,11 @@ APP_PATH = BACKEND_DIR / "app.py"
 
 @pytest.fixture(scope="session")
 def backend_module():
-    """Load app.py while blocking its optional runtime setup side effects."""
+    """Load app.py while blocking network and Cairo side effects."""
     module_name = "certificate_backend_app_for_tests"
     spec = importlib.util.spec_from_file_location(module_name, APP_PATH)
     module = importlib.util.module_from_spec(spec)
 
-    safe_font_check = SimpleNamespace(stdout="outfit onest", returncode=0)
     fake_cairosvg = ModuleType("cairosvg")
 
     def forbid_rendering(*_args, **_kwargs):
@@ -46,11 +56,8 @@ def backend_module():
     with (
         patch.dict(os.environ, clean_environment),
         patch.dict(sys.modules, {"cairosvg": fake_cairosvg}),
-        patch.object(subprocess, "run", return_value=safe_font_check),
         patch("urllib.request.urlretrieve", side_effect=AssertionError("network access is forbidden in tests")),
         patch("urllib.request.urlopen", side_effect=AssertionError("network access is forbidden in tests")),
-        patch("os.makedirs"),
-        patch("shutil.copy2"),
     ):
         previous_bytecode_setting = sys.dont_write_bytecode
         sys.dont_write_bytecode = True

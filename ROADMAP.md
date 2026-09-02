@@ -1,7 +1,7 @@
 # Roadmap de mejora progresiva
 
 > Fuente principal de verdad para la mejora de `Plataforma-de-Cursos`.
-> Última actualización: 2026-09-01.
+> Última actualización: 2026-09-02.
 
 ## Estado operativo actual
 
@@ -209,6 +209,10 @@ Depende de: Fases 1 a 4.
 - [x] Extraer y probar la lectura de configuración Flask sin cambiar contratos públicos.
 - [x] Extraer la creación de la app Flask sin cambiar rutas.
 - [x] Extraer servicios determinísticos de SVG, CSV, IA y consulta de cédulas en pasos pequeños.
+- [x] Extraer el pipeline SVG de request (`prepare_certificate_svg`) y helpers HTTP en `app.py`.
+- [x] Aislar la instalación de fuentes del import (`runtime_fonts.py`; omitida en `APP_ENV=test`).
+- [x] Partir las rutas Flask en blueprints registrados desde `app.py` (sin cambiar `create_app` ni `app:app`).
+- [x] Organizar Flask como rutas HTTP delgadas + servicios (`runtime.py` para estado de proceso).
 - [ ] Dividir `CertificatesView.jsx` por pestaña y responsabilidad, preservando props y comportamiento.
 - [ ] Centralizar cliente HTTP de certificados, autenticación y manejo de errores.
 - [ ] Reemplazar detección frágil de plantilla por metadata explícita mediante migración compatible.
@@ -285,6 +289,10 @@ Validación de salida:
 | 2026-08-26 | Fase 5 | Primer corte de configuración Flask | Se creó `backend/config.py` con carga y validación aisladas de entorno, límites, CORS y rate limiting; `app.py` conserva sus exports y rutas. Pasan 108 pruebas pytest y 78 pruebas Vitest; lint conserva 0 errores/14 advertencias conocidas y build pasa con la advertencia preexistente de chunks grandes. |
 | 2026-09-01 | Fase 5 | Segundo corte: factory de app Flask | Se creó `backend/app_factory.py` con `_rate_limit_key()` y `create_app(config)`, que construye la app Flask (MAX_CONTENT_LENGTH), el CORS y el Limiter sin registrar rutas. `app.py` invoca `app, limiter = create_app(APP_CONFIG)` y conserva exports `app`/`limiter`, middleware, error handlers y todas las rutas; el CMD de Gunicorn sigue siendo `app:app`. Se añadió `tests/test_app_factory.py`. Pasan 113 pruebas pytest (108 + 5 nuevas) y 78 pruebas Vitest; lint 0 errores/14 advertencias y build con la advertencia preexistente. |
 | 2026-09-01 | Fase 5 | Tercer corte: servicios determinísticos en `backend/services/` | Se extrajeron los helpers determinísticos de `app.py` a `backend/services/`: `svg.py` (helpers de llenado/detección/corrección/embedding/conversión a PNG/PDF + `CAIRO_OK`/`TEMPLATES_DIR`), `csv.py` (resolución de columnas y sinónimos), `ai.py` (cliente IA `AI_CLIENT`/`AI_OK` y corrección de tildes) y `cedulas.py` (consulta por cédula). `app.py` re-exporta los símbolos (facade) para que las rutas y los tests que acceden vía `backend_module.<símbolo>` sigan funcionando; el CMD `app:app` se conserva. Pasan 113 pruebas pytest, 78 pruebas Vitest; lint 0 errores/14 advertencias. |
+| 2026-09-02 | Fase 5 | Cuarto corte: pipeline SVG de request | Se añadió `prepare_certificate_svg` en `services/svg.py` como la cadena única de correcciones; `app.py` concentra `_load_request_svg` y `_fields_from_request`. Pasan 114 pruebas pytest. |
+| 2026-09-02 | Fase 5 | Quinto corte: fuentes fuera del import | Se movió la instalación de fuentes a `backend/runtime_fonts.py`; `ensure_runtime_fonts` se llama tras `create_app` y no hace nada en `APP_ENV=test`. `conftest.py` ya no parchea subprocess/shutil por fuentes. Pasan 116 pruebas pytest. |
+| 2026-09-02 | Fase 5 | Sexto corte: blueprints Flask | Las rutas `/api/*` viven en `backend/routes/` (health, templates, certificates, ai, cedulas) y se registran desde `app.py` después de `limiter.init_app`. `create_app()` sigue sin rutas de negocio; Gunicorn conserva `app:app`. Las vistas leen el módulo `app` en tiempo de request para preservar monkeypatches. Pasan 117 pruebas pytest. |
+| 2026-09-02 | Fase 5 | Séptimo corte: rutas HTTP + servicios | Las rutas extraen el request y delegan en `services/` (`certificates` orquesta analyze/preview/generate/batch; `svg`/`csv`/`ai`/`cedulas` siguen como dominio). `runtime.py` guarda almacén y cuotas para que los tests parcheen sin facade en `app.py`. Contratos HTTP y `app:app` sin cambios. Pasan 123 pruebas pytest. |
 
 ## 7. Problemas y cambios respecto al plan
 

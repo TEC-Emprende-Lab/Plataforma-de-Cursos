@@ -638,6 +638,32 @@ def _inject_firma_yorleny(svg_text: str) -> str:
     return result
 
 
+def prepare_certificate_svg(svg_text: str) -> str:
+    """Aplica la cadena de correcciones usada por todas las rutas de certificados.
+
+    El orden es el contrato existente: cursos → texto vectorizado → patrones de
+    imagen → sello de firma. No valida el SVG; las rutas validan antes.
+    """
+    return _inject_firma_yorleny(
+        _fix_image_patterns(_fix_outlined_text(_fix_cursos_svg(svg_text)))
+    )
+
+
+def list_bundled_svg_names() -> list[str]:
+    if not TEMPLATES_DIR.exists():
+        return []
+    return [path.name for path in TEMPLATES_DIR.glob("*.svg")]
+
+
+def bundled_template_path(filename: str) -> Path | None:
+    """Resuelve un nombre de archivo a una ruta dentro de TEMPLATES_DIR."""
+    safe = Path(filename).name
+    path = TEMPLATES_DIR / safe
+    if not path.exists():
+        return None
+    return path
+
+
 def _embed_fonts(svg_text: str) -> str:
     """
     Embebe Onest ExtraBold y Outfit Regular como base64 en el SVG.

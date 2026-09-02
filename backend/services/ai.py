@@ -128,3 +128,79 @@ def _fix_tildes(name: str) -> str:
 
     _tildes_cache[name_stripped] = result
     return result
+
+
+def map_svg_fields(elements, request_id: str) -> dict:
+    """Sugiere name_id y date_id a partir de elementos SVG detectados."""
+    import json
+    import logging
+    import re
+
+    from services.errors import ServiceError
+
+    logger = logging.getLogger("certificate_api")
+
+    if not AI_OK or not AI_CLIENT:
+        raise ServiceError(
+            "IA no disponible — configurá ANTHROPIC_API_KEY",
+            status=503,
+        )
+    if not elements:
+        raise ServiceError("No se encontraron elementos con id en el SVG")
+
+    ids = [e["id"] for e in elements]
+    texts = {e["id"]: e.get("text", "") for e in elements}
+
+    prompt = f"""Analiza estos IDs de elementos SVG de un certificado y determina cuál es el campo del nombre del participante y cuál es la fecha.
+
+IDs disponibles: {json.dumps(ids, ensure_ascii=False)}
+Texto actual de cada ID: {json.dumps(texts, ensure_ascii=False)}
+
+Responde SOLO con JSON, sin texto adicional:
+{{
+  "name_id": "el_id_del_nombre",
+  "date_id": "el_id_de_la_fecha",
+  "confidence": "alta|media|baja",
+  "justification": "explicación breve en español"
+}}"""
+
+    try:
+        if hasattr(AI_CLIENT, "messages"):
+            msg = AI_CLIENT.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=256,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = msg.content[0].text.strip()
+        else:
+            resp = AI_CLIENT.chat.completions.create(
+                model="gpt-4o-mini", max_tokens=256,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = resp.choices[0].message.content.strip()
+
+        m = re.search(r"```(?:json)?\s*([\s\S]+?)\s*```", text)
+        if m:
+            text = m.group(1)
+        result = json.loads(text)
+        if result.get("name_id") not in ids:
+            result["name_id"] = ids[0] if ids else ""
+        if result.get("date_id") not in ids:
+            result["date_id"] = ids[1] if len(ids) > 1 else ids[0] if ids else ""
+        return result
+    except (json.JSONDecodeError, ValueError):
+        logger.exception("Respuesta IA inválida request_id=%s", request_id)
+        raise ServiceError(
+            "La IA devolvió una respuesta inválida.",
+            status=502,
+            code="ai_invalid_response",
+        ) from None
+    except ServiceError:
+        raise
+    except Exception:
+        logger.exception("Fallo del proveedor IA request_id=%s", request_id)
+        raise ServiceError(
+            "No se pudo consultar la IA.",
+            status=502,
+            code="ai_failed",
+        ) from None
