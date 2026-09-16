@@ -1,14 +1,18 @@
 # Contexto técnico persistente de la codebase
 
 > Mapa de orientación rápida. No reemplaza al código ni a `ROADMAP.md`.
-> Última actualización: 2026-08-25.
+> Última actualización: 2026-09-02.
 
 Estado operativo: Fases 0, 1, 2, 3 y 4 completadas e integradas en `main`.
 La Fase 4 (corrección funcional respaldada por pruebas) fue integrada mediante
-un PR con commits atómicos revisados por el propietario. Regla de vigencia
+los PR #5 y #6 con commits revisados por el propietario. Regla de vigencia
 confirmada: el día de ingreso cuenta como día 1; solo se corrigió documentación,
 no la aritmética. La revocación automática sigue siendo solo de estado en cliente.
-La Fase 5 (Separación incremental de responsabilidades) está pendiente.
+La Fase 5 (Separación incremental de responsabilidades) está en curso en
+`phase/5-flask-structure`. Los cortes Flask ya extraen configuración, factory,
+servicios, pipeline SVG, fuentes de arranque, blueprints y la separación
+rutas HTTP + servicios. El siguiente corte pendiente es partir
+`CertificatesView.jsx`.
 
 ## Propósito del sistema
 
@@ -36,7 +40,7 @@ Supabase es la fuente de verdad. El modo `localStorage` debe quedar explícitame
 
 - Frontend HTML: `index.html`.
 - Frontend React: `src/main.jsx` → `src/App.jsx`.
-- Backend Flask: `backend/app.py`.
+- Backend Flask: `backend/app.py`; configuración validada en `backend/config.py`.
 - Configuración frontend externa: `src/config.js`.
 - Selección/validación de persistencia: `src/lib/config.js`.
 - Cliente Supabase: `src/lib/supabase.js`.
@@ -57,10 +61,22 @@ src/
   utils/                   Fechas, cédulas, correo, PDF, Excel/CSV, concurrencia y validaciones de formulario (`validators.js`, fuente única de formatos para modal, CSV y adapters).
   data/                    Constantes y datos iniciales del modo local.
 backend/
-  app.py                   API Flask monolítica actual.
+  app.py                   Bootstrap Flask: config, factory, middleware y registro de rutas.
+  config.py                Entorno, límites, CORS y cuotas validados.
+  app_factory.py           `create_app(config)` construye la app Flask, el CORS y el Limiter sin registrar rutas.
+  runtime.py               Estado de proceso: almacén de plantillas, cuotas y cadenas de rate limit.
+  runtime_fonts.py         Instalación de fuentes al arrancar el proceso; se omite en `APP_ENV=test`.
+  routes/                  Blueprints HTTP delgados: extraen el request y traducen `ServiceError`/`Download`.
   auth.py                  Verificación ES256/JWKS de sesiones Supabase.
   svg_security.py          Frontera de validación de SVG y CSS.
   template_storage.py      Escritura confiable de plantillas mediante service role.
+  services/                Dominio determinístico y orquestación de certificados.
+    svg.py                 Transformación/render de SVG, embedding de fuentes, detección y conversión PNG/PDF.
+    csv.py                 Resolución de columnas CSV (sinónimos y fuzzy).
+    ai.py                  Cliente IA, corrección de tildes y mapeo de campos SVG.
+    cedulas.py             Consulta de nombres por cédula en servicios del estado.
+    certificates.py        Analizar, previsualizar y generar (individual y lote).
+    errors.py              `ServiceError` con mensaje y código públicos.
   templates/               SVG incorporados y firma.
   fonts/                   Fuentes usadas al renderizar certificados.
   requirements.txt         Dependencias Python de producción.
@@ -203,6 +219,36 @@ y cursos posteriores a una importación se confirmen o reviertan juntos.
 
 ## Backend Flask
 
+La app se construye con `app_factory.create_app(config)`, que crea el objeto
+`Flask`, el CORS y el Limiter sin registrar rutas. `app.py` la invoca en tiempo
+de importación (`app, limiter = create_app(APP_CONFIG)`), instala fuentes con
+`ensure_runtime_fonts` (omitido en `APP_ENV=test`) y sobre esos objetos registra
+middleware, error handlers y `register_routes(...)`. Gunicorn arranca con
+`app:app`, así que `app.py` debe conservar `app` y `limiter` como instancias de
+nivel de módulo.
+
+Las rutas viven en `backend/routes/` como blueprints HTTP delgados (health,
+templates, certificates, ai, cedulas). Se registran desde `app.py` después de
+`limiter.init_app`, no desde `create_app()`. Cada vista extrae el request,
+delega en `backend/services/` y traduce `ServiceError` o `Download` a respuesta
+Flask. El estado de proceso (almacén de plantillas, cuotas, cadenas de rate
+limit) vive en `backend/runtime.py`, asignado al arrancar `app.py`, para que
+los tests parcheen `runtime` y `services.*` sin un facade en `app.py`.
+`template_storage.py` cubre la persistencia remota de plantillas; los SVG
+incorporados se resuelven en `services.svg`.
+
+La lógica determinística vive en `backend/services/` (`svg.py`, `csv.py`,
+`ai.py`, `cedulas.py`). `services/certificates.py` orquesta analyze, preview,
+generate y generate/batch. `prepare_certificate_svg` en `services/svg.py` es la
+cadena única de correcciones (cursos → texto vectorizado → patrones → firma).
+No hay capa MVC: esta API JSON/archivos no renderiza plantillas de servidor.
+
+```text
+request → routes/ (parseo HTTP, cuotas)
+        → services/ (svg, csv, ai, cedulas, certificates)
+        → runtime + template_storage
+```
+
 Rutas actuales:
 
 | Método | Ruta | Responsabilidad |
@@ -289,21 +335,22 @@ GitHub Actions ejecuta actualmente análisis ESLint/Semgrep y Trivy/TruffleHog e
 Red de pruebas disponible:
 
 ```text
-npm test          # 51 pruebas Vitest frontend
+npm test          # 78 pruebas Vitest frontend
 npm run lint      # 0 errores; 14 advertencias conocidas
 npm run build     # build de producción
 
 cd backend
-# Recrear el entorno si no existe .venv en la raíz:
-python -m venv ../.venv
-../.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
-../.venv/Scripts/python.exe -m pytest   # 104 pruebas backend
+# Recrear el entorno si no existe backend/.venv:
+python -m venv .venv
+.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m pytest   # 123 pruebas backend
 ```
 
-Las pruebas backend bloquean red y efectos laterales, simulan Cairo y no usan
-credenciales ni datos de producción. Las dependencias directas están fijadas;
-`pip check`, `pip-audit` y `npm audit` pasan sin vulnerabilidades conocidas.
-La generación real PDF/PNG/ZIP y Gunicorn también tienen smoke local en Linux.
+Las pruebas backend bloquean red, omiten la instalación de fuentes (`APP_ENV=test`),
+simulan Cairo y no usan credenciales ni datos de producción. Las dependencias
+directas están fijadas; `pip check`, `pip-audit` y `npm audit` pasan sin
+vulnerabilidades conocidas. La generación real PDF/PNG/ZIP y Gunicorn también
+tienen smoke local en Linux.
 
 ## Protocolo de reanudación
 

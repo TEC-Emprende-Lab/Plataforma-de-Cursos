@@ -1,7 +1,7 @@
 # Roadmap de mejora progresiva
 
 > Fuente principal de verdad para la mejora de `Plataforma-de-Cursos`.
-> Última actualización: 2026-08-25.
+> Última actualización: 2026-09-02.
 
 ## Estado operativo actual
 
@@ -10,7 +10,7 @@
 Las Fases 2 y 3 fueron integradas en `main` mediante los PR #2 y #3. Las
 correcciones de validación posterior de Fase 3 fueron integradas mediante el
 PR #4 (`phase/3-validation`), ya mergeado en `main`. La Fase 4 fue integrada
-en `main` mediante un PR con commits atómicos revisados por el propietario.
+en `main` mediante los PR #5 y #6, con commits revisados por el propietario.
 Antes de desplegar el frontend que invoca `bulk_update_participants_with_courses`
 debe aplicarse la migración `20260819000000_harden_participant_transactions.sql`
 en Supabase remoto.
@@ -203,11 +203,16 @@ Validación de salida:
 
 ### Fase 5 — Separación incremental de responsabilidades
 
-Estado: **PENDIENTE**
+Estado: **EN CURSO** (rama `phase/5-flask-structure`)
 Depende de: Fases 1 a 4.
 
-- [ ] Extraer configuración y creación de la app Flask sin cambiar rutas.
-- [ ] Extraer servicios determinísticos de SVG, CSV, IA y consulta de cédulas en pasos pequeños.
+- [x] Extraer y probar la lectura de configuración Flask sin cambiar contratos públicos.
+- [x] Extraer la creación de la app Flask sin cambiar rutas.
+- [x] Extraer servicios determinísticos de SVG, CSV, IA y consulta de cédulas en pasos pequeños.
+- [x] Extraer el pipeline SVG de request (`prepare_certificate_svg`) y helpers HTTP en `app.py`.
+- [x] Aislar la instalación de fuentes del import (`runtime_fonts.py`; omitida en `APP_ENV=test`).
+- [x] Partir las rutas Flask en blueprints registrados desde `app.py` (sin cambiar `create_app` ni `app:app`).
+- [x] Organizar Flask como rutas HTTP delgadas + servicios (`runtime.py` para estado de proceso).
 - [ ] Dividir `CertificatesView.jsx` por pestaña y responsabilidad, preservando props y comportamiento.
 - [ ] Centralizar cliente HTTP de certificados, autenticación y manejo de errores.
 - [ ] Reemplazar detección frágil de plantilla por metadata explícita mediante migración compatible.
@@ -281,6 +286,13 @@ Validación de salida:
 | 2026-08-24 | Fase 4 | Validaciones equivalentes entre modos (commit 5) | Nuevo `utils/validators.js` (correo, teléfono, cédula, duplicados de correo y etiquetas) adoptado por `ImportView`, `ParticipantModal` (formato + duplicado con errores inline), `TagsView` (trim y duplicados insensibles a mayúsculas) y ambos adapters de etiquetas; el adapter local de participantes ahora normaliza cédula y trima texto igual que Supabase. El chequeo de correo duplicado queda en la capa compartida de UI, no en adapters. Suites: 78 pruebas Vitest (13 archivos), lint 0 errores/14 advertencias, build OK. |
 | 2026-08-24 | Fase 4 | Vista previa de exportación y cierre de checkGeneral (commit 6) | La tabla de vista previa usa `colgroup` con anchos fijos y la clase `tpreview` (`overflow-wrap:anywhere`) para que correo y cursos largos se envuelvan sin invadir columnas, en escritorio y en todos los breakpoints. La celda de cursos de la tabla de participantes dejó de truncar con puntos suspensivos y ahora continúa hacia abajo con la misma estrategia. Los seis hallazgos de `docs/checkGeneral.md` se reprodujeron antes y se verificó su corrección después: cinco ya resueltos por los commits 2-5 y este último en commit 6; el documento registra el estado final por hallazgo. Suites: 78 pruebas Vitest, lint 0 errores/14 advertencias, build OK. |
 | 2026-08-24 | Fase 4 | Alineación de insignia y PDF con la semántica canónica (commit 7) | Revisión previa al PR detectó que `TimerBadge` y el listado completo del PDF evaluaban `!access` antes que la fecha, contradiciendo a listas y métricas para un vencido con marca apagada. Ambos usan ahora la precedencia de `classifyAccess` (fecha manda, decisión D-007); se corrigió además una redacción errónea del cierre del hallazgo 2 en `docs/checkGeneral.md`. Suites: 78 pruebas Vitest, lint 0 errores/14 advertencias, build OK. |
+| 2026-08-26 | Fase 5 | Primer corte de configuración Flask | Se creó `backend/config.py` con carga y validación aisladas de entorno, límites, CORS y rate limiting; `app.py` conserva sus exports y rutas. Pasan 108 pruebas pytest y 78 pruebas Vitest; lint conserva 0 errores/14 advertencias conocidas y build pasa con la advertencia preexistente de chunks grandes. |
+| 2026-09-01 | Fase 5 | Segundo corte: factory de app Flask | Se creó `backend/app_factory.py` con `_rate_limit_key()` y `create_app(config)`, que construye la app Flask (MAX_CONTENT_LENGTH), el CORS y el Limiter sin registrar rutas. `app.py` invoca `app, limiter = create_app(APP_CONFIG)` y conserva exports `app`/`limiter`, middleware, error handlers y todas las rutas; el CMD de Gunicorn sigue siendo `app:app`. Se añadió `tests/test_app_factory.py`. Pasan 113 pruebas pytest (108 + 5 nuevas) y 78 pruebas Vitest; lint 0 errores/14 advertencias y build con la advertencia preexistente. |
+| 2026-09-01 | Fase 5 | Tercer corte: servicios determinísticos en `backend/services/` | Se extrajeron los helpers determinísticos de `app.py` a `backend/services/`: `svg.py` (helpers de llenado/detección/corrección/embedding/conversión a PNG/PDF + `CAIRO_OK`/`TEMPLATES_DIR`), `csv.py` (resolución de columnas y sinónimos), `ai.py` (cliente IA `AI_CLIENT`/`AI_OK` y corrección de tildes) y `cedulas.py` (consulta por cédula). `app.py` re-exporta los símbolos (facade) para que las rutas y los tests que acceden vía `backend_module.<símbolo>` sigan funcionando; el CMD `app:app` se conserva. Pasan 113 pruebas pytest, 78 pruebas Vitest; lint 0 errores/14 advertencias. |
+| 2026-09-02 | Fase 5 | Cuarto corte: pipeline SVG de request | Se añadió `prepare_certificate_svg` en `services/svg.py` como la cadena única de correcciones; `app.py` concentra `_load_request_svg` y `_fields_from_request`. Pasan 114 pruebas pytest. |
+| 2026-09-02 | Fase 5 | Quinto corte: fuentes fuera del import | Se movió la instalación de fuentes a `backend/runtime_fonts.py`; `ensure_runtime_fonts` se llama tras `create_app` y no hace nada en `APP_ENV=test`. `conftest.py` ya no parchea subprocess/shutil por fuentes. Pasan 116 pruebas pytest. |
+| 2026-09-02 | Fase 5 | Sexto corte: blueprints Flask | Las rutas `/api/*` viven en `backend/routes/` (health, templates, certificates, ai, cedulas) y se registran desde `app.py` después de `limiter.init_app`. `create_app()` sigue sin rutas de negocio; Gunicorn conserva `app:app`. Las vistas leen el módulo `app` en tiempo de request para preservar monkeypatches. Pasan 117 pruebas pytest. |
+| 2026-09-02 | Fase 5 | Séptimo corte: rutas HTTP + servicios | Las rutas extraen el request y delegan en `services/` (`certificates` orquesta analyze/preview/generate/batch; `svg`/`csv`/`ai`/`cedulas` siguen como dominio). `runtime.py` guarda almacén y cuotas para que los tests parcheen sin facade en `app.py`. Contratos HTTP y `app:app` sin cambios. Pasan 123 pruebas pytest. |
 
 ## 7. Problemas y cambios respecto al plan
 
@@ -303,7 +315,8 @@ Validación de salida:
 
 ## 8. Siguiente paso ejecutable
 
-Arrancar la Fase 5 (Separación incremental de responsabilidades) en una rama
-dedicada desde `main`. Primer paso: extraer configuración y creación de la app
-Flask sin cambiar rutas. Aplicar la migración `20260819000000_harden_participant_transactions.sql`
+Continuar la Fase 5 en `phase/5-flask-structure`: el siguiente corte es dividir
+`CertificatesView.jsx` por pestaña y responsabilidad, preservando props y
+comportamiento.
+Aplicar la migración `20260819000000_harden_participant_transactions.sql`
 en Supabase remoto antes de desplegar el frontend resultante.

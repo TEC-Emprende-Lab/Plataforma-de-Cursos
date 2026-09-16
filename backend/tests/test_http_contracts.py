@@ -8,9 +8,9 @@ SIMPLE_SVG = b"""<svg xmlns="http://www.w3.org/2000/svg">
 </svg>"""
 
 
-def test_health_reports_service_capabilities(client, backend_module, monkeypatch):
-    monkeypatch.setattr(backend_module, "CAIRO_OK", False)
-    monkeypatch.setattr(backend_module, "AI_OK", False)
+def test_health_reports_service_capabilities(client, monkeypatch):
+    monkeypatch.setattr("services.svg.CAIRO_OK", False)
+    monkeypatch.setattr("services.ai.AI_OK", False)
 
     response = client.get("/api/health")
 
@@ -61,7 +61,7 @@ def test_svg_routes_reject_active_content_before_transforming_or_rendering(
         render_called = True
         raise AssertionError("unsafe SVG reached the renderer")
 
-    monkeypatch.setattr(backend_module, "_svg_to_output", forbidden_render)
+    monkeypatch.setattr("services.svg._svg_to_output", forbidden_render)
 
     for route in ("/api/analyze", "/api/preview", "/api/generate"):
         response = client.post(
@@ -91,7 +91,7 @@ def test_svg_routes_reject_active_content_before_transforming_or_rendering(
 def test_preview_fills_uploaded_svg_without_external_rendering(
     client, backend_module, monkeypatch
 ):
-    monkeypatch.setattr(backend_module, "_embed_fonts", lambda svg: svg)
+    monkeypatch.setattr("services.svg._embed_fonts", lambda svg: svg)
 
     response = client.post(
         "/api/preview",
@@ -110,9 +110,9 @@ def test_preview_fills_uploaded_svg_without_external_rendering(
 
 
 def test_generate_falls_back_to_downloadable_svg_without_cairo(
-    client, backend_module, monkeypatch
+    client, monkeypatch
 ):
-    monkeypatch.setattr(backend_module, "CAIRO_OK", False)
+    monkeypatch.setattr("services.svg.CAIRO_OK", False)
 
     response = client.post(
         "/api/generate",
@@ -132,7 +132,7 @@ def test_generate_falls_back_to_downloadable_svg_without_cairo(
 def test_batch_generates_one_svg_per_csv_row_and_count_headers(
     client, backend_module, monkeypatch
 ):
-    monkeypatch.setattr(backend_module, "CAIRO_OK", False)
+    monkeypatch.setattr("services.svg.CAIRO_OK", False)
     csv_data = "Nombre,Fecha\nAna Solís,2026-08-12\nLuis Mora,2026-08-13\n"
 
     response = client.post(
@@ -158,8 +158,8 @@ def test_batch_generates_one_svg_per_csv_row_and_count_headers(
 def test_error_contracts_are_json_and_do_not_call_external_services(
     client, backend_module, monkeypatch
 ):
-    monkeypatch.setattr(backend_module, "AI_OK", False)
-    monkeypatch.setattr(backend_module, "AI_CLIENT", None)
+    monkeypatch.setattr("services.ai.AI_OK", False)
+    monkeypatch.setattr("services.ai.AI_CLIENT", None)
 
     analyze_response = client.post("/api/analyze")
     assert analyze_response.status_code == 400
@@ -172,7 +172,7 @@ def test_error_contracts_are_json_and_do_not_call_external_services(
 
 def test_cedula_lookup_contract_uses_a_local_double(client, backend_module, monkeypatch):
     names = {"101010101": "ANA SOLÍS"}
-    monkeypatch.setattr(backend_module, "_lookup_cedula", names.get)
+    monkeypatch.setattr("services.cedulas._lookup_cedula", names.get)
 
     invalid = client.post("/api/cedulas/lookup", json={"cedulas": "101010101"})
     assert invalid.status_code == 400
@@ -188,3 +188,28 @@ def test_cedula_lookup_contract_uses_a_local_double(client, backend_module, monk
             {"cedula": "202020202", "nombre": None, "ok": False},
         ]
     }
+
+
+EXPECTED_API_ROUTES = {
+    "/api/health",
+    "/api/ai/status",
+    "/api/templates",
+    "/api/templates/<path:filename>",
+    "/api/templates/upload",
+    "/api/templates/delete",
+    "/api/analyze",
+    "/api/preview",
+    "/api/generate",
+    "/api/generate/batch",
+    "/api/ai/mapeo",
+    "/api/cedulas/lookup",
+}
+
+
+def test_registered_api_routes_remain_stable(backend_module):
+    rules = {
+        rule.rule
+        for rule in backend_module.app.url_map.iter_rules()
+        if rule.rule.startswith("/api/")
+    }
+    assert rules == EXPECTED_API_ROUTES
