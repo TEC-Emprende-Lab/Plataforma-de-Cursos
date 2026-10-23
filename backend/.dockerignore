@@ -11,6 +11,9 @@ venv/
 tests/
 *.csv
 *.zip
+*.dump
+*.sql
+backups/
 .git/
 .github/
 .vscode/

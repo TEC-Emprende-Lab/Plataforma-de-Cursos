@@ -1,11 +1,11 @@
 # Roadmap de mejora progresiva
 
 > Fuente principal de verdad para la mejora de `Plataforma-de-Cursos`.
-> Última actualización: 2026-09-02.
+> Última actualización: 2026-10-23.
 
 ## Estado operativo actual
 
-**FASES 0, 1, 2, 3 Y 4 COMPLETADAS.**
+**FASES 0, 1, 2, 3 Y 4 COMPLETADAS. FASE 5 EN CURSO. FASE 7 EN CURSO (7.1).**
 
 Las Fases 2 y 3 fueron integradas en `main` mediante los PR #2 y #3. Las
 correcciones de validación posterior de Fase 3 fueron integradas mediante el
@@ -14,6 +14,12 @@ en `main` mediante los PR #5 y #6, con commits revisados por el propietario.
 Antes de desplegar el frontend que invoca `bulk_update_participants_with_courses`
 debe aplicarse la migración `20260819000000_harden_participant_transactions.sql`
 en Supabase remoto.
+
+La Fase 7 se añade a partir de la `Guia_Estandar_Deploy_Coolify_TEC_Emprende_Lab.pdf`
+(v1.0, 19 de octubre de 2026) para migrar el despliegue actual —SPA en Vercel y
+Flask en Render— a Coolify v4 sobre el VPS Contabo. El despliegue actual sigue
+siendo el de producción hasta completar el corte de la Fase 7 con rollback
+verificado.
 
 Decisiones previas registradas: se mantiene la aritmética de vigencia vigente
 (el día de ingreso cuenta como día 1) corrigiendo solo documentación; la
@@ -25,7 +31,9 @@ escrituras a base de datos durante la carga.
 Mejorar progresivamente la arquitectura, mantenibilidad, seguridad, escalabilidad y calidad sin reescribir la aplicación ni alterar innecesariamente su comportamiento observable.
 
 - Flask se mantiene como backend de certificados e integraciones.
-- Supabase PostgreSQL y Supabase Auth son la fuente de verdad de datos y autenticación.
+- PostgreSQL de la aplicación se alojará en Coolify. Supabase Auth es la fuente de autenticación mientras no se defina y ejecute su topología de migración.
+- La base de datos de Coolify debe usar un volumen persistente, permanecer en la red interna (sin publicar 5432) y tener respaldo externo verificado.
+- Si se migra solo PostgreSQL y no se autoaloja Supabase Auth/Storage, el cliente `supabase-js` y las rutas actuales de datos/Storage no funcionarán sin adaptación; esa decisión debe quedar registrada antes de cortar.
 - `localStorage` se conserva únicamente como modo explícito de desarrollo; nunca debe activarse silenciosamente en producción.
 - Los cambios deben ser pequeños, reversibles, justificados y validados antes de avanzar.
 - No se introducirán cambios cosméticos ni funcionalidades nuevas fuera del objetivo técnico de cada fase.
@@ -37,7 +45,9 @@ Mejorar progresivamente la arquitectura, mantenibilidad, seguridad, escalabilida
 
 | ID | Estado | Decisión | Razón |
 |---|---|---|---|
-| D-001 | Aprobada | Mantener Supabase PostgreSQL/Auth como fuente de verdad. | Preserva el sistema en producción y evita una migración masiva incompatible con el enfoque incremental. |
+| D-001 | Revisada 2026-10-23 | Mantener Supabase Auth como fuente de autenticación mientras no se defina; PostgreSQL de la aplicación se migra a Coolify. | La migración exige decisión explícita sobre Auth/Storage; el propietario confirmó que la base de datos también irá a Coolify. |
+| D-012 | Aprobada | Alojar PostgreSQL de la aplicación en Coolify, con volumen persistente, puerto 5432 interno (sin publicar) y respaldo externo verificado. | Evita depender de la base gestionada de Supabase; exige `pg_dump`/restore, migraciones versionadas y capacidad medida en 8 GB. |
+| D-013 | Pendiente | Definir si Supabase Auth/Storage se autoaloja en Coolify o se mantiene en Supabase gestionado. Si solo se mueve PostgreSQL, adaptar el acceso de datos porque `supabase-js` no habla directamente con Postgres. Registrar la decisión antes del corte. | No se puede asumir paridad entre mover solo el motor y mantener el stack actual; cambia código, variables, memoria y complejidad. |
 | D-002 | Aprobada | Mantener Flask para certificados e integraciones. | Es una restricción expresa y ya existe un servicio desplegado y funcional. |
 | D-003 | Aprobada | Permitir `localStorage` solo mediante un modo explícito de desarrollo. | Evita que una mala configuración de producción desactive autenticación y cambie silenciosamente la persistencia. |
 | D-004 | Aprobada | Proteger progresivamente Flask con la sesión emitida por Supabase. | Unifica la frontera de autenticación sin introducir otro proveedor ni otro almacén de usuarios. |
@@ -241,6 +251,88 @@ Validación de salida:
 - Las pruebas E2E no escriben en producción.
 - Arranque y generación del backend son reproducibles sin descargas de fuentes en runtime.
 
+### Fase 7 — Migración a Coolify (TEC Emprende Lab)
+
+Estado: **EN CURSO** (7.1 — inventario local)
+Depende de: Fases 1-5. Debe seguir `Guia_Estandar_Deploy_Coolify_TEC_Emprende_Lab.pdf` (v1.0) y mantener rollback al despliegue actual (Vercel + Render) hasta validación.
+
+#### 7.1 Auditoría y preparación (Inventario)
+- [ ] Inventariar recurso origen (commit, rama, Dockerfile/Compose, variables, puertos, volúmenes, dominios, certs) para SPA y backend Flask. _(local documentado en `docs/COOLIFY_MIGRATION.md`; falta verificación remota)_
+- [x] Verificar cumplimiento del repositorio: Dockerfile, `.dockerignore`, `.gitignore`, `.env.example`, proceso foreground, escucha `0.0.0.0`, healthcheck, sin secretos en Git.
+- [x] Revisar `src/config.js` (URL hardcodeada de Flask) y plan de actualización para usar variable/URL gestionada por Coolify.
+- [x] Mapear variables de entorno: frontend (`VITE_*`), backend (`APP_ENV`, `AUTH_MODE`, `SUPABASE_*`, `CORS_ALLOWED_ORIGINS`, `RATELIMIT_STORAGE_URI`, `MAX_*`, claves IA). Secretos en Coolify Environment Variables (nunca en Git).
+- [x] Identificar persistencia: PostgreSQL de la aplicación se alojará en Coolify con volumen persistente; plantillas siguen en Supabase Storage; no había volúmenes locales en el repo.
+- [ ] Inventariar PostgreSQL actual: versión, tamaño, esquemas, extensiones, roles, conexiones y dependencia de Supabase Auth/Storage. La DB destino será PostgreSQL en Coolify.
+- [ ] Revisar exposición: confirmar qué puertos publica Docker/VPS (comprobar `docker ps`, UFW); cerrar exposición innecesaria a Internet. `5432` debe quedar interno. _(pendiente de acceso SSH)_
+
+Validación: Inventario documentado en `docs/COOLIFY_MIGRATION.md` con ramas/commits, lista de secretos por entorno y mapeo de puertos/red. Pendiente: puertos reales del VPS y estado remoto de migraciones.
+
+#### 7.2 Configuración Coolify (Infraestructura)
+- [ ] Acceso: instalar/administrar Coolify en Contabo (Ubuntu 24.04.5 LTS), acceso por túnel SSH hasta definir acceso autenticado. Usar Docker + Traefik.
+- [ ] Crear proyecto/ambiente `production` en Coolify (Server: localhost = VPS Contabo).
+- [ ] Configurar integración Git (Public repo o Deploy Key / GitHub App). Definir rama a desplegar.
+- [ ] Elegir Build Pack: `Dockerfile` para backend (`backend/`) y/o `Dockerfile` para SPA estática si se construye en contenedor. Para SPA estática, considerar build con Node y servir con Nginx/caddy o usar el mismo enfoque según auditoría.
+- [ ] Configurar Healthcheck (ej. `/api/health` para backend; ruta raíz o `/` con healthcheck HTTP para SPA), puerto interno real, variables, Storage/volúmenes si aplica.
+- [ ] Crear PostgreSQL en Coolify con volumen persistente, usuario/clave fuertes, puerto `5432` solo en red interna, sin publicar a Internet. Dimensionar RAM/disco y límites del contenedor.
+- [ ] Definir la topología de Supabase: autoalojar el stack completo (Postgres + Auth + Storage) o mover solo PostgreSQL y adaptar el frontend/backend. Registrar la decisión antes de migrar datos.
+- [ ] Red/Proxy: asociar dominio cuando exista, activar HTTPS (Traefik). Mientras tanto probar por túnel/controlado. No exponer puertos internos directamente.
+
+Validación: Recursos creados en Coolify, PostgreSQL persistente e interno, build correcto, logs sin errores, healthcheck OK.
+
+#### 7.3 Despliegue backend Flask (Coolify)
+- [ ] Crear recurso para `backend/` con Build Pack Dockerfile (usar `backend/Dockerfile`). Puerto interno 5050.
+- [ ] Configurar variables en Coolify: `APP_ENV=production`, `AUTH_MODE=required` o según caso, `SUPABASE_URL` (si se autoaloja Supabase) o la cadena de conexión/adaptador que corresponda, `SUPABASE_SERVICE_ROLE_KEY` (solo servidor), `CORS_ALLOWED_ORIGINS` (dominio SPA en Coolify/Vercel temporal), `RATELIMIT_STORAGE_URI` (Redis gestionado; producción requiere Redis), límites (`MAX_*`), claves IA opcionales.
+- [ ] Verificar healthcheck `GET /api/health`. Comprobar logs (stdout/stderr), usuario no-root, Gunicorn con `app:app`.
+- [ ] Probar endpoints críticos (health, templates) desde dentro/VPN/túnel. Validar CORS contra origen SPA.
+- [ ] Aplicar migración `20260812000000_secure_svg_templates.sql` si no aplicada (plantillas Storage/RLS). Nunca exponer service role al frontend.
+- [ ] Probar la conexión del backend a PostgreSQL en Coolify antes de migrar datos reales.
+
+Validación: `/api/health` 200, conexión a PostgreSQL en Coolify OK, CORS correcto, logs limpios, usuario no-root, sin secretos en logs.
+
+#### 7.4 Despliegue SPA (Frontend) en Coolify o mantener Vercel
+- [ ] Decidir destino: migrar SPA a Coolify (build estático en contenedor con Nginx) o mantener en Vercel durante transición. Documentar decisión.
+- [ ] Si migra a Coolify: crear recurso estático/Node build, configurar variables `VITE_*` (`VITE_STORAGE_MODE=supabase`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_DIAGNOSTICO_API_URL`, URL backend Flask), build `npm ci && npm run build`, servir `dist/` con Nginx, healthcheck opcional.
+- [ ] Actualizar `src/config.js` para usar URL del backend Flask gestionado por Coolify (variable de build/entorno o reemplazo documentado). Evitar hardcode si es posible; si se mantiene URL absoluta, actualizarla.
+- [ ] Configurar dominio/HTTPS para SPA. Actualizar `CORS_ALLOWED_ORIGINS` del backend con nuevo origen.
+- [ ] Si se mantiene Vercel temporalmente, solo actualizar `CERT_API` apuntando a backend en Coolify y verificar CORS.
+
+Validación: SPA carga, login Supabase OK, generación de certificados funciona contra backend Coolify, sin errores de consola.
+
+#### 7.5 Migración de datos, DNS, corte y rollback
+- [ ] Respaldar PostgreSQL actual con `pg_dump`/`pg_dumpall` (o herramienta Supabase), incluyendo esquemas, roles, extensiones y datos; respaldar Storage de plantillas. Verificar integridad y ensayar restauración en la instancia PostgreSQL de Coolify.
+- [ ] Definir migración de datos: congelar escrituras, volcar, restaurar en Coolify, aplicar/comprobar migraciones versionadas y validar conteos/relaciones/RLS.
+- [ ] Resolver la topología de Auth/Storage antes del corte: si Supabase se autoaloja, migrar también sus esquemas y secretos; si solo se mueve PostgreSQL, adaptar la aplicación y probar autenticación/datos.
+- [ ] Plan de corte: ventana acordada, bajar TTL DNS si cambia registro, evitar escrituras simultáneas. Mantener origen (Render/Vercel/Supabase) activo para rollback.
+- [ ] Configurar DNS (cuando dominio exista) apuntando a Coolify/Traefik. Activar HTTPS.
+- [ ] Verificaciones post-corte: healthchecks, login, listar participantes/cursos/etiquetas, generar certificado individual, importar/exportar, logs y consumo RAM/CPU/disco; comprobar persistencia de PostgreSQL tras recrear el contenedor.
+- [ ] Rollback documentado y probado: revertir DNS y conexiones, restaurar respaldo si hubo escrituras, volver a Render/Vercel/Supabase. Mantener servidor origen disponible hasta superar monitoreo.
+
+Validación: Corte sin pérdida de datos, PostgreSQL persistente y restaurable en Coolify, rollback verificable, monitoreo estable.
+
+#### 7.6 Seguridad, operación y checklist de aceptación
+- [ ] Aplicar checklist de aceptación: repo compila sin depender del equipo dev, puertos/red correctos (sin puertos internos expuestos), secretos fuera de repo/imagen, healthcheck OK, persistencia de PostgreSQL tras recrear contenedor, respaldo externo + prueba de restauración, sin credenciales en logs, mínimos privilegios, consumo revisado, rollback/migración documentados.
+- [ ] Revisar exposición de puertos con `docker ps` y reglas de firewall/UFW del proveedor (atención a puertos publicados fuera de proxy); confirmar que PostgreSQL en 5432 no es alcanzable desde Internet.
+- [ ] Mantener acceso a Coolify por túnel SSH hasta definir método autenticado público controlado.
+- [ ] Documentar campos exactos usados en Coolify (fuente, repo/rama, base dir, build pack, Dockerfile path, puerto, healthcheck, variables, storage) en `docs/COOLIFY_MIGRATION.md` o sección en `docs/OPERACION.md`.
+- [ ] Actualizar `CODEBASE_CONTEXT.md` y `ROADMAP.md` con estado post-migración; actualizar referencias (Render/Vercel) solo tras corte completo.
+
+Validación: Checklist completo, puertos revisados, documentación actualizada.
+
+#### Entregables
+- `docs/COOLIFY_MIGRATION.md` (inventario, configuración Coolify, variables, DNS/corte, rollback, checklist)
+- Actualización de `src/config.js` si cambia URL de backend
+- Actualización de `.env.example` si se añaden variables requeridas
+- Registro en `ROADMAP.md`/`CODEBASE_CONTEXT.md`
+
+#### Riesgos
+- Exposición accidental de puertos (Docker bypass UFW) — verificar con `docker ps` y desde red externa. PostgreSQL 5432 debe estar solo en red interna.
+- Redis requerido para rate limiting en producción — provisionar antes del despliegue.
+- Migración de PostgreSQL a Coolify: requiere dump/restore, decisión sobre Auth/Storage, adaptación si `supabase-js` ya no apunta a Supabase gestionado.
+- Recursos en VPS 8GB/4vCPU: dimensionar PostgreSQL, Redis, Flask, SPA y Traefik; evitar quedar sin memoria.
+- Hardcode de `CERT_API` en frontend — planificar cambio coordinado con CORS.
+- Service role key solo servidor — nunca exponer al frontend.
+- Sin dominio inicial — usar túnel/pruebas controladas, activar HTTPS al asignar dominio.
+
 ## 6. Registro de validaciones y avances
 
 | Fecha | Fase | Validación | Resultado |
@@ -293,6 +385,10 @@ Validación de salida:
 | 2026-09-02 | Fase 5 | Quinto corte: fuentes fuera del import | Se movió la instalación de fuentes a `backend/runtime_fonts.py`; `ensure_runtime_fonts` se llama tras `create_app` y no hace nada en `APP_ENV=test`. `conftest.py` ya no parchea subprocess/shutil por fuentes. Pasan 116 pruebas pytest. |
 | 2026-09-02 | Fase 5 | Sexto corte: blueprints Flask | Las rutas `/api/*` viven en `backend/routes/` (health, templates, certificates, ai, cedulas) y se registran desde `app.py` después de `limiter.init_app`. `create_app()` sigue sin rutas de negocio; Gunicorn conserva `app:app`. Las vistas leen el módulo `app` en tiempo de request para preservar monkeypatches. Pasan 117 pruebas pytest. |
 | 2026-09-02 | Fase 5 | Séptimo corte: rutas HTTP + servicios | Las rutas extraen el request y delegan en `services/` (`certificates` orquesta analyze/preview/generate/batch; `svg`/`csv`/`ai`/`cedulas` siguen como dominio). `runtime.py` guarda almacén y cuotas para que los tests parcheen sin facade en `app.py`. Contratos HTTP y `app:app` sin cambios. Pasan 123 pruebas pytest. |
+| 2026-10-23 | Fase 7 | Inventario local de migración | Documentado en `docs/COOLIFY_MIGRATION.md`: HEAD `1f35152`; SPA React/Vite sin Dockerfile raíz; backend con Dockerfile no-root/healthcheck reutilizable; `CERT_API` fijo a Render; `.env.example` mezclado; Redis obligatorio sin servicio definido; 11 migraciones locales y respaldos sin documentar. |
+| 2026-10-23 | Fase 7 | Línea base local | Tras `npm ci` y crear `.venv`: lint 0 errores/14 advertencias; 78 pruebas Vitest; 123 pruebas pytest con Python 3.14.7; build OK con advertencia de chunks (`App` 707,40 kB, `exceljs` 929,58 kB). `npm audit --omit=dev` reporta 2 vulnerabilidades de producción (1 alta, 1 crítica) en `dompurify@3.4.13`; requiere actualización. `docker build` sigue pendiente porque el daemon no está activo. |
+| 2026-10-23 | Fase 7 | Acceso al VPS | Bloqueado: la llave `~/.ssh/contabo_emprendelab` no está disponible; no se ejecutaron comprobaciones remotas de puertos, migraciones ni Coolify. |
+| 2026-10-23 | Fase 7 | Pila Docker local | Añadidos `Dockerfile` raíz, `nginx.conf`, `.dockerignore` raíz y `compose.yaml` con PostgreSQL 17, Redis 7, backend Flask y frontend Nginx. `VITE_CERT_API_URL` configurable; `.env.example` separado. `docker compose config` válido; build/up pendiente porque Docker Desktop no está activo. |
 
 ## 7. Problemas y cambios respecto al plan
 
@@ -312,11 +408,23 @@ Validación de salida:
 - La validación posterior al merge de Fase 3 encontró que los hooks devolvían errores correctamente, pero varios callers todavía cerraban diálogos o mostraban éxito sin esperar la promesa. La corrección conserva los adapters de Ximena y hace que la UI respete su contrato.
 - `20260819000000_harden_participant_transactions.sql` debe aplicarse antes de desplegar el frontend que usa `bulk_update_participants_with_courses`; no modificar ni reescribir la migración original ya integrada.
 - Se realizaron 3 mejoras UX no planificadas en fase (2026-08-25): (a) `AccessBar` en `UI.jsx` ahora muestra días transcurridos de total (`12d de 45d`) en vez de porcentaje (`26% de 45d`), que resultaba confuso; (b) el formulario de nueva etiqueta en `TagsView.jsx` se destaca con borde superior naranja, título más grande en color y ícono `+`; (c) `ColorPicker.jsx` obtiene fondo `cream-3` con borde para que los colores claros (especialmente `gray`) no se confundan con el fondo de la app. Estas mejoras no alteran contratos de datos ni lógica funcional; se documentan en `docs/DESIGN_SYSTEM.md`.
+- La auditoría local de Fase 7 (2026-10-23) no pudo ejecutar la línea base porque faltan `node_modules` y `.venv`, y Docker Desktop está detenido. No debe interpretarse como fallo del código; son bloqueos de entorno que deben resolverse antes de validar los cambios de migración.
+- La llave SSH `~/.ssh/contabo_emprendelab` no está disponible localmente. La Fase 7.1 queda completa en su parte local, pero la verificación de puertos, migraciones remotas y estado de Coolify sigue bloqueada hasta recibirla por canal seguro.
+- La auditoría local de Fase 7 (2026-10-23) detectó 2 vulnerabilidades de producción en `dompurify@3.4.13` (1 alta, 1 crítica) según `npm audit --omit=dev`; el arreglo disponible exige `3.4.17`, fuera del rango declarado. Debe resolverse y validarse la sanitización SVG antes de exponer Coolify.
 
 ## 8. Siguiente paso ejecutable
 
-Continuar la Fase 5 en `phase/5-flask-structure`: el siguiente corte es dividir
-`CertificatesView.jsx` por pestaña y responsabilidad, preservando props y
-comportamiento.
-Aplicar la migración `20260819000000_harden_participant_transactions.sql`
-en Supabase remoto antes de desplegar el frontend resultante.
+**Fase 7 — Migración a Coolify: continuar 7.1 con la parte local y desbloquear el acceso.** El inventario local ya está documentado en `docs/COOLIFY_MIGRATION.md`.
+
+1. [x] Preparar el entorno local: `npm ci`; `npm run lint`, `npm test` y `npm run build`; `.venv` con `backend/requirements-dev.txt`; pytest. Resultado: lint 0 errores/14 advertencias, 78 Vitest, build OK, 123 pytest.
+2. [ ] Iniciar Docker Desktop y validar `docker build -t plataforma-cursos-backend backend/`.
+3. [ ] Decidir y documentar la topología Coolify: SPA en Nginx + Flask + Redis + PostgreSQL (todos internos; 5432 no publicado) + Traefik. Definir si Supabase Auth/Storage se autoaloja o se mantienen en Supabase gestionado. Supabase PostgreSQL dejará de usarse para los datos de la app.
+4. [x] Preparar artefactos locales: `Dockerfile`/Nginx y `.dockerignore` raíz para la SPA; `compose.yaml` con PostgreSQL/Redis/backend/frontend; URL del backend configurable; `.env.example` separado por servicio y documentación de conexión a PostgreSQL.
+5. [ ] Resolver las 2 vulnerabilidades de producción de `dompurify@3.4.13` reportadas por `npm audit --omit=dev` y revalidar sanitización SVG.
+6. [ ] Solicitar la llave SSH por canal seguro. Al recibirla: verificar VPS/Coolify, puertos publicados (confirmar 5432 interno), estado de migraciones y crear proyecto/ambiente.
+7. [ ] Crear PostgreSQL en Coolify con volumen persistente, hacer `pg_dump` de la BD actual, restaurar en Coolify, probar conexión y luego desplegar backend Flask (7.3).
+8. [ ] Ajustar la app si solo se mueve PostgreSQL (conexión/cliente) o completar autoalojamiento de Supabase; desplegar SPA (7.4) y ejecutar corte con rollback.
+
+En paralelo (si hay capacidad): continuar Fase 5 — dividir `CertificatesView.jsx` por pestaña y responsabilidad, preservando props y comportamiento.
+
+Recordatorio: Aplicar la migración `20260819000000_harden_participant_transactions.sql` en Supabase remoto antes de desplegar el frontend resultante (si aún no aplicada).
