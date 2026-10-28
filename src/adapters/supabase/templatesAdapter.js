@@ -147,6 +147,10 @@ function fromDb(row) {
     created_at:
       row.created_at ??
       '',
+    template_key: row.template_key ?? null,
+    fields: row.fields ?? null,
+    version: row.version ?? 1,
+    metadata: row.metadata ?? null,
     svgContent: null,
   }
 }
@@ -524,6 +528,13 @@ export function createTemplatesSupabaseAdapter() {
           ]
         )
       )
+
+      if (meta.template_key) {
+        form.append('template_key', meta.template_key)
+      }
+      if (meta.fields || meta.metadata) {
+        form.append('metadata', JSON.stringify({ fields: meta.fields, ...meta.metadata }))
+      }
 
       // ------------------------------------------------------
       // Guardar mediante Certificate API

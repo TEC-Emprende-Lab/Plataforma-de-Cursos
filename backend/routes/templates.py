@@ -69,6 +69,14 @@ def register_template_routes(app: Flask, limiter: Limiter) -> None:
             (item["id"] for item in elements if re.search(r"date|fecha", item["id"], re.I)),
             None,
         )
+        template_key = (request.form.get("template_key") or "").strip() or None
+        metadata_extra = {}
+        try:
+            if request.form.get("metadata"):
+                metadata_extra = json.loads(request.form.get("metadata") or "{}")
+        except (json.JSONDecodeError, TypeError):
+            metadata_extra = {}
+
         metadata = {
             "name": (request.form.get("name") or Path(uploaded.filename).stem)[:120],
             "file_name": Path(uploaded.filename).name[:120],
@@ -78,6 +86,10 @@ def register_template_routes(app: Flask, limiter: Limiter) -> None:
             "tags": _template_list_field("tags", maximum=20),
             "name_id": (request.form.get("name_id") or detected_name or "recipient_name")[:120],
             "date_id": (request.form.get("date_id") or detected_date or "issue_date")[:120],
+            "template_key": template_key,
+            "fields": {"detected": elements, **(metadata_extra.get("fields") or {})},
+            "version": 1,
+            "metadata": metadata_extra,
         }
         row = runtime.template_store.create(svg_text, uploaded.filename, metadata)
         return jsonify({"template": row}), 201
