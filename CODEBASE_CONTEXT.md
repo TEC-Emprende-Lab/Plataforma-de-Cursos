@@ -1,18 +1,18 @@
 # Contexto técnico persistente de la codebase
 
 > Mapa de orientación rápida. No reemplaza al código ni a `ROADMAP.md`.
-> Última actualización: 2026-09-02.
+> Última actualización: 2026-10-28.
 
-Estado operativo: Fases 0, 1, 2, 3 y 4 completadas e integradas en `main`.
+Estado operativo: Fases 0, 1, 2, 3, 4 y 5 completadas e integradas en `main`.
 La Fase 4 (corrección funcional respaldada por pruebas) fue integrada mediante
 los PR #5 y #6 con commits revisados por el propietario. Regla de vigencia
 confirmada: el día de ingreso cuenta como día 1; solo se corrigió documentación,
 no la aritmética. La revocación automática sigue siendo solo de estado en cliente.
-La Fase 5 (Separación incremental de responsabilidades) está en curso en
-`phase/5-flask-structure`. Los cortes Flask ya extraen configuración, factory,
-servicios, pipeline SVG, fuentes de arranque, blueprints y la separación
-rutas HTTP + servicios. El siguiente corte pendiente es partir
-`CertificatesView.jsx`.
+La Fase 5 (Separación incremental de responsabilidades) fue completada:
+se dividió `CertificatesView.jsx` en componentes modulares, se centralizó
+el cliente HTTP en `src/api/certificates.js` y se añadió soporte para metadata
+explícita de plantillas con migración compatible. La Fase 7 (Coolify) está en
+curso (7.1).
 
 ## Propósito del sistema
 
@@ -40,6 +40,8 @@ Supabase es la fuente de verdad. El modo `localStorage` debe quedar explícitame
 
 - Frontend HTML: `index.html`.
 - Frontend React: `src/main.jsx` → `src/App.jsx`.
+- Componentes certificados: `src/components/CertificatesView.jsx` (orquestador) y `src/components/certificates/*` (Individual, Batch, UI, shared, carousel).
+- API cliente: `src/api/certificates.js` (centraliza llamadas a Flask con manejo de errores).
 - Backend Flask: `backend/app.py`; configuración validada en `backend/config.py`.
 - Configuración frontend externa: `src/config.js`.
 - Selección/validación de persistencia: `src/lib/config.js`.

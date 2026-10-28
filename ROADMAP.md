@@ -5,7 +5,7 @@
 
 ## Estado operativo actual
 
-**FASES 0, 1, 2, 3 Y 4 COMPLETADAS. FASE 5 EN CURSO. FASE 7 EN CURSO (7.1).**
+**FASES 0, 1, 2, 3, 4 Y 5 COMPLETADAS. FASE 7 EN CURSO (7.1).**
 
 Las Fases 2 y 3 fueron integradas en `main` mediante los PR #2 y #3. Las
 correcciones de validación posterior de Fase 3 fueron integradas mediante el
@@ -213,7 +213,7 @@ Validación de salida:
 
 ### Fase 5 — Separación incremental de responsabilidades
 
-Estado: **EN CURSO** (rama `phase/5-flask-structure`)
+Estado: **COMPLETADA**
 Depende de: Fases 1 a 4.
 
 - [x] Extraer y probar la lectura de configuración Flask sin cambiar contratos públicos.
@@ -223,14 +223,15 @@ Depende de: Fases 1 a 4.
 - [x] Aislar la instalación de fuentes del import (`runtime_fonts.py`; omitida en `APP_ENV=test`).
 - [x] Partir las rutas Flask en blueprints registrados desde `app.py` (sin cambiar `create_app` ni `app:app`).
 - [x] Organizar Flask como rutas HTTP delgadas + servicios (`runtime.py` para estado de proceso).
-- [ ] Dividir `CertificatesView.jsx` por pestaña y responsabilidad, preservando props y comportamiento.
-- [ ] Centralizar cliente HTTP de certificados, autenticación y manejo de errores.
-- [ ] Reemplazar detección frágil de plantilla por metadata explícita mediante migración compatible.
+- [x] Dividir `CertificatesView.jsx` por pestaña y responsabilidad, preservando props y comportamiento.
+- [x] Centralizar cliente HTTP de certificados, autenticación y manejo de errores.
+- [x] Reemplazar detección frágil de plantilla por metadata explícita mediante migración compatible.
 
 Validación de salida:
 
 - Cada extracción mantiene pruebas y contratos HTTP verdes.
 - No hay migración de framework ni reescritura masiva.
+- Build, lint y tests frontend/backend pasan tras la separación.
 
 ### Fase 6 — Consolidación de CI, rendimiento y operación
 
@@ -389,6 +390,8 @@ Validación: Checklist completo, puertos revisados, documentación actualizada.
 | 2026-10-23 | Fase 7 | Línea base local | Tras `npm ci` y crear `.venv`: lint 0 errores/14 advertencias; 78 pruebas Vitest; 123 pruebas pytest con Python 3.14.7; build OK con advertencia de chunks (`App` 707,40 kB, `exceljs` 929,58 kB). `npm audit --omit=dev` reporta 2 vulnerabilidades de producción (1 alta, 1 crítica) en `dompurify@3.4.13`; requiere actualización. `docker build` sigue pendiente porque el daemon no está activo. |
 | 2026-10-23 | Fase 7 | Acceso al VPS | Bloqueado: la llave `~/.ssh/contabo_emprendelab` no está disponible; no se ejecutaron comprobaciones remotas de puertos, migraciones ni Coolify. |
 | 2026-10-23 | Fase 7 | Pila Docker local | Añadidos `Dockerfile` raíz, `nginx.conf`, `.dockerignore` raíz y `compose.yaml` con PostgreSQL 17, Redis 7, backend Flask y frontend Nginx. `VITE_CERT_API_URL` configurable; `.env.example` separado. `docker compose config` válido; build/up pendiente porque Docker Desktop no está activo. |
+| 2026-10-28 | Fase 5 | Completar separación de responsabilidades | Dividido `CertificatesView.jsx` en `src/components/certificates/` (Individual, Batch, UI, shared, carousel, referencia). Creado `src/api/certificates.js` centralizando llamadas a Flask con `certificateApiFetch` y manejo de errores. Añadida migración `20261028000000_add_template_metadata.sql` (template_key, fields, version, metadata) compatible con plantillas existentes. Backend/frontend actualizados para soportar metadata; 78 Vitest y 123 pytest pasan. Commit `6d75a9c`. |
+| 2026-10-28 | Seguridad | Actualizar dependencias | `npm audit fix --force` actualiza `dompurify` a 3.4.17 resolviendo 1 crítica y 1 alta. `npm audit --omit=dev` sin vulnerabilidades. Tests y lint OK. Commit `8bde435`. |
 
 ## 7. Problemas y cambios respecto al plan
 
