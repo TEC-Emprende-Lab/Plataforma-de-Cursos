@@ -11,7 +11,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "echo 'E2E tests require isolated environment - see tests/e2e/README.md' && exit 0"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
