@@ -5,7 +5,7 @@
 
 ## Estado operativo actual
 
-**FASES 0, 1, 2, 3, 4 Y 5 COMPLETADAS. FASE 7 EN CURSO (7.1).**
+**FASES 0, 1, 2, 3, 4, 5 Y PARTE DE FASE 6 COMPLETADAS. FASE 7 EN CURSO (7.1).**
 
 Las Fases 2 y 3 fueron integradas en `main` mediante los PR #2 y #3. Las
 correcciones de validación posterior de Fase 3 fueron integradas mediante el
@@ -235,11 +235,11 @@ Validación de salida:
 
 ### Fase 6 — Consolidación de CI, rendimiento y operación
 
-Estado: **PENDIENTE**
+Estado: **EN CURSO**
 Depende de: fases anteriores necesarias.
 
-- [ ] Partir de los workflows existentes de ESLint, Semgrep, Trivy y TruffleHog; depurar su configuración y conservar reportes SARIF útiles.
-- [ ] Convertir CI en una puerta reproducible sin secretos ni acceso a producción: lint, build, tests y build de Docker deben bloquear el PR cuando fallen.
+- [x] Partir de los workflows existentes de ESLint, Semgrep, Trivy y TruffleHog; depurar su configuración y conservar reportes SARIF útiles.
+- [x] Convertir CI en una puerta reproducible sin secretos ni acceso a producción: lint, build, tests y build de Docker deben bloquear el PR cuando fallen.
 - [ ] Configurar protección de `main`: sin pushes directos, Pull Request obligatorio y checks requeridos antes del merge.
 - [ ] Añadir pruebas E2E de caminos felices y casos límite con un entorno aislado.
 - [ ] Medir y reducir el chunk principal mediante carga diferida donde sea justificable.
