@@ -2,7 +2,7 @@
 
 > Guía base: `Guia_Estandar_Deploy_Coolify_TEC_Emprende_Lab.pdf` (v1.0, 19 oct 2026)
 > Guía de acceso: `Guia_Conexion_Contabo.pdf` (v1.0, 19 oct 2026)
-> Estado: **EN PROGRESO — 7.1 Inventario local** | Última actualización: 2026-10-23
+> Estado: **EN PROGRESO — 7.1 Inventario local** | Última actualización: 2026-11-19
 
 ## 1. Objetivo
 
@@ -19,11 +19,11 @@ contenedores manualmente: cada servicio debe reconstruirse desde GitHub.
 |---|---|
 | Repo | `Plataforma-de-Cursos` (`github.com/TEC-Emprende-Lab/Plataforma-de-Cursos`) |
 | Rama local | `main` |
-| HEAD local | `1f35152` — Merge PR #7 de `phase/5-flask-structure` |
+| HEAD local | `dc394f7` — CI bloqueante, división de chunks y scaffolding E2E (estado real en `ROADMAP.md`) |
 | Remoto | `origin/main` sincronizado al inicio de esta auditoría |
-| Working tree | `ROADMAP.md`, `docs/COOLIFY_MIGRATION.md`, `src/config.js`, `.env.example` y artefactos Docker nuevos; PDFs de guías sin versionar |
-| Node | `v24.19.0`; `package.json` exige `^20.19.0 || >=22.12.0` |
-| Python local | `.venv` creado con Python 3.14.7; pytest ejecutable |
+| Working tree | Limpio en `main`; corrección actual en rama `fix/e2e-ci-docs`; PDFs de guías sin versionar |
+| Node | `v26.13.0` local; CI usa `22`; `package.json` exige `^20.19.0 || >=22.12.0` |
+| Python local | `.venv` no presente en esta sesión; recrearlo desde `backend/requirements-dev.txt` antes de pytest |
 | Docker local | Cliente disponible y `compose.yaml` validado; daemon Docker Desktop **no está corriendo**, por lo que falta construir y levantar la pila |
 | `node_modules` | Instalado con `npm ci`; lint, tests y build ejecutables |
 | Stack local | `compose.yaml` con PostgreSQL 17, Redis 7, backend Flask y frontend Nginx |
@@ -163,9 +163,10 @@ sensibles hay que verificar la exposición real desde una red externa.
 
 ### 2.7 CI y validación local
 
-- Workflows actuales: ESLint/Semgrep (`lint-and-static.yml`) y
-  Trivy/TruffleHog (`security-scan.yml`). No hay build, tests ni `docker build`
-  como puerta obligatoria.
+- Workflows de auditoría: ESLint/Semgrep (`lint-and-static.yml`) y
+  Trivy/TruffleHog (`security-scan.yml`).
+- Puerta bloqueante: `ci.yml` ejecuta lint, Vitest, pytest, build del frontend y
+  `docker build` de backend y SPA en cada PR hacia `main`. No ejecuta E2E.
 - Línea base local ejecutada el 2026-10-23:
   - `npm ci`: OK; reporta 10 vulnerabilidades totales (4 moderadas, 5 altas,
     1 crítica), incluidas dependencias de desarrollo.
@@ -197,7 +198,7 @@ sensibles hay que verificar la exposición real desde una red externa.
 | Redis | Servicio en `compose.yaml` | Crear servicio interno en Coolify |
 | Dominio/HTTPS | No | Túnel al inicio; DNS/HTTPS al comprar dominio |
 | URL de API configurable | Sí (`VITE_CERT_API_URL`) | Configurar en build de Coolify |
-| CI con build/tests/Docker | No | Completar Fase 6 o gate específico |
+| CI con build/tests/Docker | Sí (`ci.yml`) | E2E queda fuera; implementar por separado |
 
 ## 3. Configuración Coolify (7.2)
 
@@ -303,9 +304,9 @@ sensibles hay que verificar la exposición real desde una red externa.
 - Aplicar las migraciones pendientes en Supabase remoto antes del despliegue.
 - No hay scripts de respaldo/restauración; documentarlos y ensayarlos (dump de
   PostgreSQL + restauración probados).
-- `npm audit --omit=dev` reporta vulnerabilidades de producción en
-  `dompurify@3.4.13`; actualizar a una versión corregida y validar los
-  sanitizadores SVG antes de exponer el despliegue en Coolify.
+- `dompurify` quedó fijado en `^3.4.17` (commit `8bde435`) y
+  `npm audit --omit=dev` ya no reporta vulnerabilidades de producción. Mantener
+  la validación de los sanitizadores SVG antes de exponer Coolify.
 
 ## 9. Próximos pasos locales (sin acceso al VPS)
 
@@ -360,7 +361,7 @@ Notas:
    en este archivo.
 5. [ ] Ensayar `pg_dump` de la base actual y restauración en el PostgreSQL local
    (sin ejecutar las migraciones Supabase desde cero).
-6. [ ] Resolver hallazgos de `npm audit` de producción (DOMPurify).
+6. [x] Resolver hallazgos de `npm audit` de producción (DOMPurify).
 7. [ ] Solicitar la llave SSH por canal seguro para continuar con 7.2 (verificar
    puertos, confirmar red interna de Postgres).
 
@@ -373,3 +374,4 @@ Notas:
 | 2026-10-23 | Línea base local de lint/tests/build | OK | Lint 0 errores/14 advertencias; 78 Vitest; 123 pytest; build OK con chunks grandes; `npm audit --omit=dev` reporta 2 vulnerabilidades de producción |
 | 2026-10-23 | Docker build del backend | BLOQUEADO | Daemon de Docker Desktop detenido |
 | 2026-10-23 | Acceso al VPS | BLOQUEADO | La llave `~/.ssh/contabo_emprendelab` aún no está disponible |
+| 2026-11-19 | Corrección de CI y estado documental | OK | E2E marcado como pendiente, DOMPurify actualizado, `ci.yml` documentado como puerta bloqueante; `npm test` 78/78 tras fijar jsdom y `localStorage` de prueba |

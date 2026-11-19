@@ -220,6 +220,11 @@ El pipeline actualmente se enfoca en:
 * Generación de resultados en SARIF.
 * Centralización de hallazgos en GitHub Code Scanning.
 
+Además, `.github/workflows/ci.yml` funciona como puerta bloqueante de los Pull
+Requests: ejecuta ESLint, Vitest, pytest, el build del frontend y los builds de
+las imágenes Docker del backend y la SPA. Ese workflow no genera SARIF ni
+ejecuta pruebas E2E.
+
 No cubre actualmente:
 
 * Validación funcional de las funcionalidades del sistema.

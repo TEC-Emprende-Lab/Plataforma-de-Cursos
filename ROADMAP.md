@@ -5,7 +5,7 @@
 
 ## Estado operativo actual
 
-**FASES 0-6 COMPLETADAS. FASE 7 EN CURSO (7.1).**
+**FASES 0-5 COMPLETADAS. FASE 6 PARCIAL (CI bloqueante y división de chunks listos; E2E, observabilidad y protección de `main` pendientes). FASE 7 EN CURSO (7.1).**
 
 Las Fases 2 y 3 fueron integradas en `main` mediante los PR #2 y #3. Las
 correcciones de validación posterior de Fase 3 fueron integradas mediante el
@@ -241,10 +241,12 @@ Depende de: fases anteriores necesarias.
 - [x] Partir de los workflows existentes de ESLint, Semgrep, Trivy y TruffleHog; depurar su configuración y conservar reportes SARIF útiles.
 - [x] Convertir CI en una puerta reproducible sin secretos ni acceso a producción: lint, build, tests y build de Docker deben bloquear el PR cuando fallen.
 - [ ] Configurar protección de `main`: sin pushes directos, Pull Request obligatorio y checks requeridos antes del merge.
-- [x] Añadir pruebas E2E de caminos felices y casos límite con un entorno aislado.
-- [x] Medir y reducir el chunk principal mediante carga diferida donde sea justificable.
-- [x] Sustituir instalación de fuentes en runtime por artefactos reproducibles de imagen/repositorio.
-- [x] Añadir observabilidad sin registrar PII ni secretos.
+- [ ] Añadir pruebas E2E de caminos felices y casos límite con un entorno aislado. El scaffolding del commit `dc394f7` no era JavaScript válido y se retiró; requiere `@playwright/test` y entorno aislado (`tests/e2e/README.md`).
+- [x] Medir y reducir el chunk principal mediante carga diferida donde sea justificable (commits `6d75a9c` y `dc394f7`).
+- [x] Sustituir instalación de fuentes en runtime por artefactos reproducibles de imagen/repositorio (fuentes versionadas e instaladas en la imagen desde Fase 5; no fue un cambio de Fase 6).
+- [ ] Añadir observabilidad sin registrar PII ni secretos. Ya existen logs con `request_id` desde Fase 2; falta definir métricas/alertas y verificar explícitamente la regla.
+
+> Ajuste del 2026-11-19: el commit `dc394f7` marcó las casillas de E2E, fuentes y observabilidad como completadas sin incluir cambios para E2E ni observabilidad, y las fuentes ya estaban resueltas desde Fase 5. Se corrige el estado para que el roadmap sea confiable.
 
 Validación de salida:
 
@@ -392,6 +394,7 @@ Validación: Checklist completo, puertos revisados, documentación actualizada.
 | 2026-10-23 | Fase 7 | Pila Docker local | Añadidos `Dockerfile` raíz, `nginx.conf`, `.dockerignore` raíz y `compose.yaml` con PostgreSQL 17, Redis 7, backend Flask y frontend Nginx. `VITE_CERT_API_URL` configurable; `.env.example` separado. `docker compose config` válido; build/up pendiente porque Docker Desktop no está activo. |
 | 2026-10-28 | Fase 5 | Completar separación de responsabilidades | Dividido `CertificatesView.jsx` en `src/components/certificates/` (Individual, Batch, UI, shared, carousel, referencia). Creado `src/api/certificates.js` centralizando llamadas a Flask con `certificateApiFetch` y manejo de errores. Añadida migración `20261028000000_add_template_metadata.sql` (template_key, fields, version, metadata) compatible con plantillas existentes. Backend/frontend actualizados para soportar metadata; 78 Vitest y 123 pytest pasan. Commit `6d75a9c`. |
 | 2026-10-28 | Seguridad | Actualizar dependencias | `npm audit fix --force` actualiza `dompurify` a 3.4.17 resolviendo 1 crítica y 1 alta. `npm audit --omit=dev` sin vulnerabilidades. Tests y lint OK. Commit `8bde435`. |
+| 2026-11-19 | Fase 6 | Corrección de E2E, entorno de pruebas y estado del roadmap | Se retiró `tests/e2e/smoke.spec.js` (comentarios `#`, sintaxis inválida que rompía `npm test`); `tests/e2e/**` queda excluido de Vitest y `test:e2e` falla explícitamente hasta instalar Playwright. Se fijó `jsdom` y un polyfill de `localStorage` en `tests/setup.js` para Node 26. `npm test`: 78/78; lint: 0 errores/11 advertencias; build OK. Se reclasifican E2E y observabilidad como pendientes. |
 
 ## 7. Problemas y cambios respecto al plan
 
@@ -413,21 +416,21 @@ Validación: Checklist completo, puertos revisados, documentación actualizada.
 - Se realizaron 3 mejoras UX no planificadas en fase (2026-08-25): (a) `AccessBar` en `UI.jsx` ahora muestra días transcurridos de total (`12d de 45d`) en vez de porcentaje (`26% de 45d`), que resultaba confuso; (b) el formulario de nueva etiqueta en `TagsView.jsx` se destaca con borde superior naranja, título más grande en color y ícono `+`; (c) `ColorPicker.jsx` obtiene fondo `cream-3` con borde para que los colores claros (especialmente `gray`) no se confundan con el fondo de la app. Estas mejoras no alteran contratos de datos ni lógica funcional; se documentan en `docs/DESIGN_SYSTEM.md`.
 - La auditoría local de Fase 7 (2026-10-23) no pudo ejecutar la línea base porque faltan `node_modules` y `.venv`, y Docker Desktop está detenido. No debe interpretarse como fallo del código; son bloqueos de entorno que deben resolverse antes de validar los cambios de migración.
 - La llave SSH `~/.ssh/contabo_emprendelab` no está disponible localmente. La Fase 7.1 queda completa en su parte local, pero la verificación de puertos, migraciones remotas y estado de Coolify sigue bloqueada hasta recibirla por canal seguro.
-- La auditoría local de Fase 7 (2026-10-23) detectó 2 vulnerabilidades de producción en `dompurify@3.4.13` (1 alta, 1 crítica) según `npm audit --omit=dev`; el arreglo disponible exige `3.4.17`, fuera del rango declarado. Debe resolverse y validarse la sanitización SVG antes de exponer Coolify.
+- La auditoría local de Fase 7 (2026-10-23) detectó 2 vulnerabilidades de producción en `dompurify@3.4.13`; fueron resueltas el 2026-10-28 al fijar `^3.4.17` (commit `8bde435`). `npm audit --omit=dev` reporta 0 vulnerabilidades; se mantiene la validación de los sanitizadores SVG antes de exponer Coolify.
 
 ## 8. Siguiente paso ejecutable
 
 **Fase 7 — Migración a Coolify: continuar 7.1 con la parte local y desbloquear el acceso.** El inventario local ya está documentado en `docs/COOLIFY_MIGRATION.md`.
 
-1. [x] Preparar el entorno local: `npm ci`; `npm run lint`, `npm test` y `npm run build`; `.venv` con `backend/requirements-dev.txt`; pytest. Resultado: lint 0 errores/14 advertencias, 78 Vitest, build OK, 123 pytest.
+1. [x] Preparar el entorno local: `npm ci`; `npm run lint`, `npm test` y `npm run build`; `.venv` con `backend/requirements-dev.txt`; pytest. Resultado: lint 0 errores/11 advertencias, 78 Vitest, build OK, 123 pytest.
 2. [ ] Iniciar Docker Desktop y validar `docker build -t plataforma-cursos-backend backend/`.
 3. [ ] Decidir y documentar la topología Coolify: SPA en Nginx + Flask + Redis + PostgreSQL (todos internos; 5432 no publicado) + Traefik. Definir si Supabase Auth/Storage se autoaloja o se mantienen en Supabase gestionado. Supabase PostgreSQL dejará de usarse para los datos de la app.
 4. [x] Preparar artefactos locales: `Dockerfile`/Nginx y `.dockerignore` raíz para la SPA; `compose.yaml` con PostgreSQL/Redis/backend/frontend; URL del backend configurable; `.env.example` separado por servicio y documentación de conexión a PostgreSQL.
-5. [ ] Resolver las 2 vulnerabilidades de producción de `dompurify@3.4.13` reportadas por `npm audit --omit=dev` y revalidar sanitización SVG.
+5. [x] Resolver las vulnerabilidades de producción de `dompurify` y conservar la revalidación de la sanitización SVG (commit `8bde435`).
 6. [ ] Solicitar la llave SSH por canal seguro. Al recibirla: verificar VPS/Coolify, puertos publicados (confirmar 5432 interno), estado de migraciones y crear proyecto/ambiente.
 7. [ ] Crear PostgreSQL en Coolify con volumen persistente, hacer `pg_dump` de la BD actual, restaurar en Coolify, probar conexión y luego desplegar backend Flask (7.3).
 8. [ ] Ajustar la app si solo se mueve PostgreSQL (conexión/cliente) o completar autoalojamiento de Supabase; desplegar SPA (7.4) y ejecutar corte con rollback.
 
-En paralelo (si hay capacidad): continuar Fase 5 — dividir `CertificatesView.jsx` por pestaña y responsabilidad, preservando props y comportamiento.
+En paralelo (si hay capacidad): completar Fase 6 — implementar E2E con Playwright y definir observabilidad sin PII.
 
 Recordatorio: Aplicar la migración `20260819000000_harden_participant_transactions.sql` en Supabase remoto antes de desplegar el frontend resultante (si aún no aplicada).

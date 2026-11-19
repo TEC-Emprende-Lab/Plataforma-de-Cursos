@@ -11,8 +11,10 @@ no la aritmética. La revocación automática sigue siendo solo de estado en cli
 La Fase 5 (Separación incremental de responsabilidades) fue completada:
 se dividió `CertificatesView.jsx` en componentes modulares, se centralizó
 el cliente HTTP en `src/api/certificates.js` y se añadió soporte para metadata
-explícita de plantillas con migración compatible. La Fase 7 (Coolify) está en
-curso (7.1).
+explícita de plantillas con migración compatible. La Fase 6 está parcialmente
+completada: la CI bloqueante y la división de chunks están listas; E2E,
+observabilidad y protección de `main` siguen pendientes. La Fase 7 (Coolify)
+está en curso (7.1).
 
 ## Propósito del sistema
 
@@ -97,12 +99,14 @@ docs/                      Documentación detallada: ARQUITECTURA.md (capas y co
 
 ## Integración continua y documentos de auditoría
 
-`origin/main` incluye dos workflows que se ejecutan en pushes y Pull Requests hacia `main` o `develop`:
+`origin/main` incluye dos workflows de auditoría que se ejecutan en pushes y Pull Requests hacia `main` o `develop`:
 
 - `.github/workflows/lint-and-static.yml`: ESLint y Semgrep.
 - `.github/workflows/security-scan.yml`: Trivy y TruffleHog.
 
-Están configurados para publicar resultados SARIF en GitHub Code Scanning. `docs/CI-PIPELINE.md` explica su alcance y `docs/QA-FINDINGS.md` conserva la instantánea de hallazgos del 2026-08-11. Estos controles todavía son parcialmente informativos: no incluyen build ni tests y varios pasos permiten continuar tras detectar problemas. No deben interpretarse como garantía de que un cambio es integrable.
+Publican resultados SARIF en GitHub Code Scanning. `docs/CI-PIPELINE.md` explica su alcance y `docs/QA-FINDINGS.md` conserva la instantánea de hallazgos del 2026-08-11. Varios pasos permiten continuar tras detectar problemas, así que no deben interpretarse como garantía de que un cambio es integrable.
+
+Además, `.github/workflows/ci.yml` es la puerta bloqueante: lint, Vitest, pytest, build del frontend y builds de las dos imágenes Docker. No ejecuta E2E.
 
 `ci-setup/eslint.config.js` es un artefacto auxiliar agregado junto con el pipeline; no es la configuración ESLint activa de la aplicación. La configuración efectiva sigue siendo `eslint.config.js` en la raíz.
 
@@ -328,18 +332,19 @@ Deuda resuelta en Fase 4: `TODAY` ya no queda congelado al importar y la revocac
 Desde la raíz del repositorio:
 
 ```text
-npm run lint   # pasa con 0 errores; conserva 14 advertencias conocidas
+npm run lint   # pasa con 0 errores; conserva 11 advertencias conocidas
 npm run build  # pasa con advertencia de chunk grande
 ```
 
-GitHub Actions ejecuta actualmente análisis ESLint/Semgrep y Trivy/TruffleHog en `main` y `develop`. Aún debe añadirse una puerta completa con build, pruebas y build de Docker.
+GitHub Actions ejecuta análisis ESLint/Semgrep y Trivy/TruffleHog en `main` y `develop` como auditoría informativa, y `.github/workflows/ci.yml` bloquea los PR con lint, pruebas, build y builds de Docker. Falta la protección de `main` en la configuración de GitHub y las pruebas E2E.
 
 Red de pruebas disponible:
 
 ```text
 npm test          # 78 pruebas Vitest frontend
-npm run lint      # 0 errores; 14 advertencias conocidas
+npm run lint      # 0 errores; 11 advertencias conocidas
 npm run build     # build de producción
+npm run test:e2e  # falla a propósito: E2E pendiente de implementar
 
 cd backend
 # Recrear el entorno si no existe backend/.venv:
@@ -347,6 +352,10 @@ python -m venv .venv
 .venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python -m pytest   # 123 pruebas backend
 ```
+
+Vitest usa `jsdom` de forma global y `tests/setup.js` provee `localStorage`
+cuando el entorno Node no lo expone; `tests/e2e/**` está excluido de la suite
+unitaria en `vite.config.js`.
 
 Las pruebas backend bloquean red, omiten la instalación de fuentes (`APP_ENV=test`),
 simulan Cairo y no usan credenciales ni datos de producción. Las dependencias

@@ -7,6 +7,10 @@ repo `plataformadepersonasemprendedoras`.
 
 > Última revisión: sesión del 2026-07-13. Actualizar esta fecha y las
 > secciones que cambien en cada sesión futura.
+>
+> Nota 2026-11-19: el estado operativo de `Plataforma-de-Cursos` se sigue en
+> `ROADMAP.md` y `CODEBASE_CONTEXT.md` (Fases 0-5 completadas, Fase 6 parcial,
+> Fase 7 en curso). Las secciones de este archivo sobre ese repo son históricas.
 
 ---
 
