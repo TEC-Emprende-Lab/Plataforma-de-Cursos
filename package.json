@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:e2e": "echo 'E2E tests require isolated environment - see tests/e2e/README.md' && exit 0"
+    "test:e2e": "echo 'E2E aun no implementado: requiere @playwright/test y entorno aislado (tests/e2e/README.md)' && exit 1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
